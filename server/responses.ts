@@ -1,4 +1,5 @@
 import { Authing } from "./app";
+import { CommentAuthorNotMatchError } from "./concepts/commenting";
 import { AlreadyFriendsError, FriendNotFoundError, FriendRequestAlreadyExistsError, FriendRequestDoc, FriendRequestNotFoundError } from "./concepts/friending";
 import { PostAuthorNotMatchError, PostDoc } from "./concepts/posting";
 import { Router } from "./framework/router";
@@ -40,6 +41,11 @@ export default class Responses {
 }
 
 Router.registerError(PostAuthorNotMatchError, async (e) => {
+  const username = (await Authing.getUserById(e.author)).username;
+  return e.formatWith(username, e._id);
+});
+
+Router.registerError(CommentAuthorNotMatchError, async (e) => {
   const username = (await Authing.getUserById(e.author)).username;
   return e.formatWith(username, e._id);
 });
