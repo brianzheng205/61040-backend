@@ -1,7 +1,7 @@
 import { Authing, Joining } from "./app";
 import { CommentAuthorNotMatchError, CommentDoc } from "./concepts/commenting";
 import { AlreadyFriendsError, FriendNotFoundError, FriendRequestAlreadyExistsError, FriendRequestDoc, FriendRequestNotFoundError } from "./concepts/friending";
-import { GroupDoc, UserGroupsDoc } from "./concepts/joining";
+import { GroupDoc, GroupOwnerNotMatchError, UserGroupsDoc } from "./concepts/joining";
 import { PostAuthorNotMatchError, PostDoc } from "./concepts/posting";
 import { Router } from "./framework/router";
 
@@ -122,4 +122,9 @@ Router.registerError(FriendRequestNotFoundError, async (e) => {
 Router.registerError(AlreadyFriendsError, async (e) => {
   const [user1, user2] = await Promise.all([Authing.getUserById(e.user1), Authing.getUserById(e.user2)]);
   return e.formatWith(user1.username, user2.username);
+});
+
+Router.registerError(GroupOwnerNotMatchError, async (e) => {
+  const username = (await Authing.getUserById(e.owner)).username;
+  return e.formatWith(username, e._id);
 });
