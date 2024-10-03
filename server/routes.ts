@@ -2,7 +2,7 @@ import { ObjectId } from "mongodb";
 
 import { Router, getExpressRouter } from "./framework/router";
 
-import { Authing, Commenting, Friending, Posting, Sessioning } from "./app";
+import { Authing, Commenting, Friending, Joining, Posting, Sessioning } from "./app";
 import { PostOptions } from "./concepts/posting";
 import { SessionDoc } from "./concepts/sessioning";
 import Responses from "./responses";
@@ -183,6 +183,36 @@ class Routes {
     const oid = new ObjectId(id);
     await Commenting.assertAuthorIsUser(oid, user);
     return Commenting.delete(oid);
+  }
+
+  @Router.get("/groups/:user")
+  async getGroupsByUser(user: string) {
+    const id = (await Authing.getUserByUsername(user))._id;
+    const userGroups = await Joining.getByUser(id);
+    return Responses.userGroups(userGroups);
+  }
+
+  @Router.post("/groups")
+  async createGroup(session: SessionDoc, name: string) {
+    const user = Sessioning.getUser(session);
+    const created = await Joining.create(name, user);
+    return { msg: created.msg, group: await Responses.group(created.group) };
+  }
+
+  @Router.patch("/groups/:id")
+  async updateGroup(session: SessionDoc, id: string, name: string) {
+    const user = Sessioning.getUser(session);
+    const oid = new ObjectId(id);
+    await Joining.assertOwnerIsUser(oid, user);
+    return await Joining.update(oid, name);
+  }
+
+  @Router.delete("/groups/:id")
+  async deleteGroup(session: SessionDoc, id: string) {
+    const user = Sessioning.getUser(session);
+    const oid = new ObjectId(id);
+    await Joining.assertOwnerIsUser(oid, user);
+    return Joining.delete(oid);
   }
 }
 

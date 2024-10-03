@@ -1,6 +1,7 @@
-import { Authing } from "./app";
+import { Authing, Joining } from "./app";
 import { CommentAuthorNotMatchError, CommentDoc } from "./concepts/commenting";
 import { AlreadyFriendsError, FriendNotFoundError, FriendRequestAlreadyExistsError, FriendRequestDoc, FriendRequestNotFoundError } from "./concepts/friending";
+import { GroupDoc, UserGroupsDoc } from "./concepts/joining";
 import { PostAuthorNotMatchError, PostDoc } from "./concepts/posting";
 import { Router } from "./framework/router";
 
@@ -57,6 +58,39 @@ export default class Responses {
   static async comments(comments: CommentDoc[]) {
     const authors = await Authing.idsToUsernames(comments.map((comment) => comment.author));
     return comments.map((comment, i) => ({ ...comment, author: authors[i] }));
+  }
+
+  /**
+   * Convert GroupDoc into more readable format for the frontend
+   * by converting the group ids into names and the user ids into usernames.
+   */
+  static async group(group: GroupDoc | null) {
+    if (!group) {
+      return group;
+    }
+    const members = await Authing.idsToUsernames(group.members);
+    return { ...group, members };
+  }
+
+  /**
+   * Same as {@link group} but for an array of GroupDoc for improved performance.
+   */
+  static async groups(groups: GroupDoc[]) {
+    const members = await Promise.all(groups.map((group) => Authing.idsToUsernames(group.members)));
+    return groups.map((group, i) => ({ ...group, members: members[i] }));
+  }
+
+  /**
+   * Conver UserGroupsDoc into more readable format for the frontend
+   * by converting the group ids into names and the user id into username.
+   */
+  static async userGroups(userGroups: UserGroupsDoc | null) {
+    if (!userGroups) {
+      return userGroups;
+    }
+    const username = await Authing.getUserById(userGroups.user).then((user) => user.username);
+    const groupNames = await Joining.idsToGroupNames(userGroups.groups);
+    return { user: username, groups: groupNames };
   }
 }
 
