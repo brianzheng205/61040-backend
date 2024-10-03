@@ -23,8 +23,17 @@ export default class CommentingConcept {
     return { msg: "Comment successfully created!", comment: await this.comments.readOne({ _id }) };
   }
 
-  async getByItem(item: ObjectId): Promise<CommentDoc[]> {
-    return this.comments.readMany({ item });
+  async getByAuthor(author: ObjectId) {
+    return await this.comments.readMany({ author });
+  }
+
+  async getByItem(item: ObjectId) {
+    return await this.comments.readMany({ item });
+  }
+
+  async update(_id: ObjectId, content?: string) {
+    await this.comments.partialUpdateOne({ _id }, { content });
+    return { msg: "Comment successfully updated!" };
   }
 
   async delete(_id: ObjectId) {

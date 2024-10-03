@@ -9,7 +9,7 @@ export interface GroupDoc extends BaseDoc {
 /**
  * Joining [Group, User]
  */
-export class JoiningConcept {
+export default class JoiningConcept {
   public readonly groups: DocCollection<GroupDoc>;
 
   constructor(collectionName: string) {
