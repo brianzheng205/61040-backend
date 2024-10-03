@@ -193,27 +193,67 @@ class Routes {
   }
 
   @Router.post("/groups")
-  async createGroup(session: SessionDoc, name: string) {
-    const user = Sessioning.getUser(session);
-    const created = await Joining.create(name, user);
-    return { msg: created.msg, group: await Responses.group(created.group) };
-  }
+  async createGroup(session: SessionDoc, name: string) {}
+
+  @Router.patch("/groups/:group")
+  async joinGroup(session: SessionDoc, group: string) {}
+
+  @Router.patch("/groups/:group")
+  async leaveGroup(session: SessionDoc, group: string) {}
 
   @Router.patch("/groups/:id")
-  async updateGroup(session: SessionDoc, id: string, name: string) {
-    const user = Sessioning.getUser(session);
-    const oid = new ObjectId(id);
-    await Joining.assertOwnerIsUser(oid, user);
-    return await Joining.update(oid, name);
-  }
+  async updateGroup(session: SessionDoc, id: string, name: string) {}
 
   @Router.delete("/groups/:id")
-  async deleteGroup(session: SessionDoc, id: string) {
-    const user = Sessioning.getUser(session);
-    const oid = new ObjectId(id);
-    await Joining.assertOwnerIsUser(oid, user);
-    return Joining.delete(oid);
-  }
+  async deleteGroup(session: SessionDoc, id: string) {}
+
+  @Router.get("/data/:username")
+  async getData(username: string) {}
+
+  @Router.get("/data/:username/:data")
+  async getDataByDate(username: string, date: string) {}
+
+  @Router.get("/data/:username/:startDate/:endDate")
+  async getDataByDateRange(username: string, startDate: string, endDate: string) {}
+
+  @Router.get("/data/:username")
+  async getDataWithBestScore(username: string) {}
+
+  @Router.post("/data")
+  async createData(session: SessionDoc, date: Date, score: number) {}
+
+  @Router.patch("/data/:id")
+  async updateData(session: SessionDoc, id: string, date: Date, score: number) {}
+
+  @Router.delete("/data/:id")
+  async deleteData(session: SessionDoc, id: string) {}
+
+  @Router.get("/visualizations/:data")
+  async getVisualizationByData(session: SessionDoc, data: string) {}
+
+  @Router.post("/visualizations")
+  async createVisualization(session: SessionDoc, data: ObjectId) {}
+
+  @Router.patch("/visualizations/:id")
+  async updateVisualization(session: SessionDoc, id: string, data: ObjectId) {}
+
+  @Router.delete("/visualizations/:id")
+  async deleteVisualization(session: SessionDoc, id: string) {}
+
+  @Router.get("/competitions/:username")
+  async getCompetitions(username: string) {}
+
+  @Router.get("/competitions/:competition")
+  async getCompetitionUsers(competition: string) {}
+
+  @Router.post("/competitions")
+  async createCompetition(session: SessionDoc, name: string) {}
+
+  @Router.patch("/competitions/:id")
+  async updateCompetition(session: SessionDoc, id: string, name: string) {}
+
+  @Router.delete("/competitions/:id")
+  async deleteCompetition(session: SessionDoc, id: string) {}
 }
 
 /** The web app. */

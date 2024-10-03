@@ -26,22 +26,6 @@ export default class JoiningConcept {
     this.userGroups = new DocCollection<UserGroupsDoc>(collectionName + "_userGroups");
   }
 
-  async create(name: string, user: ObjectId) {
-    const _id = await this.groups.createOne({ name, owner: user, members: [user] });
-    return { msg: "Group successfully created!", group: await this.groups.readOne({ _id }) };
-  }
-
-  async update(_id: ObjectId, name: string) {
-    await this.groups.collection.updateOne({ id: _id }, { $set: { name } });
-    return { msg: "Group successfully updated!", group: await this.groups.readOne({ _id }) };
-  }
-
-  async delete(_id: ObjectId) {
-    await this.groups.deleteOne({ id: _id });
-    await this.userGroups.deleteMany({ groups: _id });
-    return { msg: "Group successfully deleted!" };
-  }
-
   async join(user: ObjectId, group: ObjectId) {
     await this.assertUserIsNotInGroup(user, group);
     const _id = await this.groups.collection.updateOne({ id: group }, { $push: { members: user } });
