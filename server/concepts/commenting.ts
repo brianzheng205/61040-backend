@@ -8,7 +8,10 @@ export interface CommentDoc extends BaseDoc {
   content: string;
 }
 
-export class CommentingConcept {
+/**
+ * concept: Commenting [Item, Author]
+ */
+export default class CommentingConcept {
   public readonly comments: DocCollection<CommentDoc>;
 
   constructor(collectionName: string) {
@@ -17,7 +20,7 @@ export class CommentingConcept {
 
   async create(author: ObjectId, item: ObjectId, content: string) {
     const _id = await this.comments.createOne({ author, item, content });
-    return { msg: "Comment successfully created!", post: await this.comments.readOne({ _id }) };
+    return { msg: "Comment successfully created!", comment: await this.comments.readOne({ _id }) };
   }
 
   async getByItem(item: ObjectId): Promise<CommentDoc[]> {
