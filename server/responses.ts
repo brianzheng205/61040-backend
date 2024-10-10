@@ -4,6 +4,7 @@ import { CommentAuthorNotMatchError, CommentDoc } from "./concepts/commenting";
 import { AlreadyFriendsError, FriendNotFoundError, FriendRequestAlreadyExistsError, FriendRequestDoc, FriendRequestNotFoundError } from "./concepts/friending";
 import { GroupDoc, GroupOwnerNotMatchError, UserAlreadyInGroupError, UserGroupDoc, UserNotInGroupError } from "./concepts/joining";
 import { PostAuthorNotMatchError, PostDoc } from "./concepts/posting";
+import { DataOwnerNotMatchError } from "./concepts/tracking";
 import { Router } from "./framework/router";
 
 /**
@@ -151,4 +152,9 @@ Router.registerError(UserNotAssociatedError, async (e) => {
 Router.registerError(UserAlreadyAssociatedError, async (e) => {
   const username = (await Authing.getUserById(e.user)).username;
   return e.formatWith(username, e.item);
+});
+
+Router.registerError(DataOwnerNotMatchError, async (e) => {
+  const username = (await Authing.getUserById(e.user)).username;
+  return e.formatWith(e._id, username);
 });
