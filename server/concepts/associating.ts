@@ -20,10 +20,12 @@ export default class AssociatingConcept {
 
   async associate(user: ObjectId, item: ObjectId) {
     await this.items.createOne({ user, item });
+    return { msg: "Item successfully associated with user!", item: await this.items.readOne({ user, item }) };
   }
 
   async disassociate(item: ObjectId) {
     await this.items.deleteOne({ item });
+    return { msg: "Item successfully disassociated from user!" };
   }
 
   async getItemsByUser(user: ObjectId) {
