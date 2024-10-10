@@ -1,8 +1,9 @@
-import { Authing, Joining } from "./app";
+import { Authing, Competing } from "./app";
 import { UserAlreadyAssociatedError, UserNotAssociatedError } from "./concepts/associating";
 import { CommentAuthorNotMatchError, CommentDoc } from "./concepts/commenting";
+import { CompetitionOwnerNotMatchError } from "./concepts/competing";
 import { AlreadyFriendsError, FriendNotFoundError, FriendRequestAlreadyExistsError, FriendRequestDoc, FriendRequestNotFoundError } from "./concepts/friending";
-import { GroupDoc, GroupOwnerNotMatchError, UserAlreadyInGroupError, UserGroupDoc, UserNotInGroupError } from "./concepts/joining";
+import { UserIsAlreadyMemberError, UserIsNotMemberError } from "./concepts/joining";
 import { PostAuthorNotMatchError, PostDoc } from "./concepts/posting";
 import { DataOwnerNotMatchError } from "./concepts/tracking";
 import { Router } from "./framework/router";
@@ -61,39 +62,6 @@ export default class Responses {
     const authors = await Authing.idsToUsernames(comments.map((comment) => comment.author));
     return comments.map((comment, i) => ({ ...comment, author: authors[i] }));
   }
-
-  /**
-   * Convert GroupDoc into more readable format for the frontend
-   * by converting the group ids into names and the user ids into usernames.
-   */
-  static async group(group: GroupDoc | null) {
-    if (!group) {
-      return group;
-    }
-    const members = await Authing.idsToUsernames(group.members);
-    return { ...group, members };
-  }
-
-  /**
-   * Same as {@link group} but for an array of GroupDoc for improved performance.
-   */
-  static async groups(groups: GroupDoc[]) {
-    const members = await Promise.all(groups.map((group) => Authing.idsToUsernames(group.members)));
-    return groups.map((group, i) => ({ ...group, members: members[i] }));
-  }
-
-  /**
-   * Conver UserGroupsDoc into more readable format for the frontend
-   * by converting the group ids into names and the user id into username.
-   */
-  static async userGroups(userGroups: UserGroupDoc[]) {
-    if (userGroups.length === 0) {
-      return userGroups;
-    }
-    const username = await Authing.getUserById(userGroups[0].user).then((user) => user.username);
-    const groupNames = await Joining.idsToGroupNames(userGroups.map((userGroup) => userGroup.group));
-    return { user: username, groups: groupNames };
-  }
 }
 
 Router.registerError(PostAuthorNotMatchError, async (e) => {
@@ -126,21 +94,15 @@ Router.registerError(AlreadyFriendsError, async (e) => {
   return e.formatWith(user1.username, user2.username);
 });
 
-Router.registerError(GroupOwnerNotMatchError, async (e) => {
-  const username = (await Authing.getUserById(e.owner)).username;
-  const groupName = (await Joining.idsToGroupNames([e._id]))[0];
+Router.registerError(UserIsAlreadyMemberError, async (e) => {
+  const username = (await Authing.getUserById(e.user)).username;
+  const groupName = (await Competing.getCompetitionById(e.group)).name;
   return e.formatWith(username, groupName);
 });
 
-Router.registerError(UserAlreadyInGroupError, async (e) => {
+Router.registerError(UserIsNotMemberError, async (e) => {
   const username = (await Authing.getUserById(e.user)).username;
-  const groupName = (await Joining.idsToGroupNames([e.group]))[0];
-  return e.formatWith(username, groupName);
-});
-
-Router.registerError(UserNotInGroupError, async (e) => {
-  const username = (await Authing.getUserById(e.user)).username;
-  const groupName = (await Joining.idsToGroupNames([e.group]))[0];
+  const groupName = (await Competing.getCompetitionById(e.group)).name;
   return e.formatWith(username, groupName);
 });
 
@@ -157,4 +119,10 @@ Router.registerError(UserAlreadyAssociatedError, async (e) => {
 Router.registerError(DataOwnerNotMatchError, async (e) => {
   const username = (await Authing.getUserById(e.user)).username;
   return e.formatWith(e._id, username);
+});
+
+Router.registerError(CompetitionOwnerNotMatchError, async (e) => {
+  const username = (await Authing.getUserById(e.user)).username;
+  const competitionName = (await Competing.getCompetitionById(e.competition)).name;
+  return e.formatWith(competitionName, username);
 });

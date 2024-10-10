@@ -2,7 +2,7 @@ import { ObjectId } from "mongodb";
 
 import { Router, getExpressRouter } from "./framework/router";
 
-import { Authing, Commenting, Friending, Joining, Posting, Sessioning } from "./app";
+import { Authing, Commenting, Friending, Posting, Sessioning } from "./app";
 import { PostOptions } from "./concepts/posting";
 import { SessionDoc } from "./concepts/sessioning";
 import Responses from "./responses";
@@ -153,14 +153,18 @@ class Routes {
     return await Friending.rejectRequest(fromOid, user);
   }
 
-  @Router.get("/comments/:author")
-  async getCommentsByAuthor(author: string) {
+  // TODO: add associating
+  // TODO: make author optional
+  // TODO: add validation
+  // @Router.validate(z.object({ author: z.string().optional() }))
+  @Router.get("/comments")
+  async getComments(author: string) {
     const id = (await Authing.getUserByUsername(author))._id;
     const comments = await Commenting.getByAuthor(id);
     return Responses.comments(comments);
   }
 
-  @Router.post("/comments/:postId")
+  @Router.post("/comments")
   async createComment(session: SessionDoc, postId: string, content: string) {
     const post = new ObjectId(postId);
     await Posting.assertPostExists(post);
@@ -185,75 +189,40 @@ class Routes {
     return Commenting.delete(oid);
   }
 
-  @Router.get("/groups/:user")
-  async getGroupsByUser(user: string) {
-    const id = (await Authing.getUserByUsername(user))._id;
-    const userGroups = await Joining.getByUser(id);
-    return Responses.userGroups(userGroups);
-  }
+  // TODO: Add Docs
+  @Router.get("/data")
+  async getData(username?: string, date?: string, startDate?: string, endDate?: string, bestScore?: string) {}
 
-  @Router.post("/groups")
-  async createGroup(session: SessionDoc, name: string) {}
-
-  @Router.patch("/groups/:group")
-  async joinGroup(session: SessionDoc, group: string) {}
-
-  @Router.patch("/groups/:group")
-  async leaveGroup(session: SessionDoc, group: string) {}
-
-  @Router.patch("/groups/:id")
-  async updateGroup(session: SessionDoc, id: string, name: string) {}
-
-  @Router.delete("/groups/:id")
-  async deleteGroup(session: SessionDoc, id: string) {}
-
-  @Router.get("/data/:username")
-  async getData(username: string) {}
-
-  @Router.get("/data/:username/:data")
-  async getDataByDate(username: string, date: string) {}
-
-  @Router.get("/data/:username/:startDate/:endDate")
-  async getDataByDateRange(username: string, startDate: string, endDate: string) {}
-
-  @Router.get("/data/:username")
-  async getDataWithBestScore(username: string) {}
-
+  // TODO: Add data to any competitions that the user is a part of
   @Router.post("/data")
-  async createData(session: SessionDoc, date: Date, score: number) {}
+  async logData(session: SessionDoc, date: Date, score: number) {}
 
   @Router.patch("/data/:id")
-  async updateData(session: SessionDoc, id: string, date: Date, score: number) {}
+  async updateData(session: SessionDoc, id: string, date?: Date, score?: number) {}
 
   @Router.delete("/data/:id")
   async deleteData(session: SessionDoc, id: string) {}
 
-  @Router.get("/visualizations/:data")
-  async getVisualizationByData(session: SessionDoc, data: string) {}
-
-  @Router.post("/visualizations")
-  async createVisualization(session: SessionDoc, data: ObjectId) {}
-
-  @Router.patch("/visualizations/:id")
-  async updateVisualization(session: SessionDoc, id: string, data: ObjectId) {}
-
-  @Router.delete("/visualizations/:id")
-  async deleteVisualization(session: SessionDoc, id: string) {}
-
-  @Router.get("/competitions/:username")
-  async getCompetitions(username: string) {}
-
-  @Router.get("/competitions/:competition")
-  async getCompetitionUsers(competition: string) {}
+  @Router.get("/competitions")
+  async getCompetitions(username?: string) {}
 
   @Router.post("/competitions")
   async createCompetition(session: SessionDoc, name: string) {}
 
-  @Router.patch("/competitions/:id")
-  async updateCompetition(session: SessionDoc, id: string, name: string) {}
+  @Router.patch("/competitions/:competitionName")
+  async updateCompetition(session: SessionDoc, competitionName: string, newName?: string, owner?: ObjectId, endDate?: string) {}
 
-  @Router.delete("/competitions/:id")
-  async deleteCompetition(session: SessionDoc, id: string) {}
+  @Router.delete("/competitions/:competitionName")
+  async deleteCompetition(session: SessionDoc, competitionName: string) {}
+
+  @Router.get("/competitions/:competitionName/users")
+  async getCompetitionMembers(competitionName: string) {}
+
+  @Router.post("/competitions/:competitionName/users")
+  async joinCompetition(session: SessionDoc, competitionName: string) {}
+
+  @Router.delete("/competitions/:competitionName/users/:user")
+  async leaveCompetition(session: SessionDoc, competitionName: string) {}
 }
 
 /** The web app. */

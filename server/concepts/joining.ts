@@ -1,99 +1,60 @@
 import { ObjectId } from "mongodb";
 
 import DocCollection, { BaseDoc } from "../framework/doc";
-import { NotAllowedError, NotFoundError } from "./errors";
+import { NotAllowedError } from "./errors";
 
-export interface GroupDoc extends BaseDoc {
-  name: string;
-  owner: ObjectId;
-  members: ObjectId[];
-}
-
-export interface UserGroupDoc extends BaseDoc {
+export interface MembershipDoc extends BaseDoc {
   user: ObjectId;
   group: ObjectId;
 }
 
 /**
- * Joining [Group, User]
+ * Joining [User, Group]
  */
 export default class JoiningConcept {
-  public readonly groups: DocCollection<GroupDoc>;
-  public readonly userGroups: DocCollection<UserGroupDoc>;
+  public readonly memberships: DocCollection<MembershipDoc>;
 
   constructor(collectionName: string) {
-    this.groups = new DocCollection<GroupDoc>(collectionName);
-    this.userGroups = new DocCollection<UserGroupDoc>(collectionName + "_userGroups");
+    this.memberships = new DocCollection<MembershipDoc>(collectionName);
   }
 
   async join(user: ObjectId, group: ObjectId) {
-    await this.assertUserIsNotInGroup(user, group);
-    const _id = await this.groups.collection.updateOne({ id: group }, { $push: { members: user } });
-    await this.userGroups.createOne({ user, group });
-    return { msg: "Group successfully joined!", group: await this.groups.readOne({ _id }) };
+    await this.assertUserIsNotMember(user, group);
+    const _id = await this.memberships.createOne({ user, group });
+    return { msg: "Group successfully joined!", group: await this.memberships.readOne({ _id }) };
   }
 
   async leave(user: ObjectId, group: ObjectId) {
-    await this.assertUserIsInGroup(user, group);
-    await this.groups.collection.updateOne({ id: group }, { $pull: { members: user } });
-    await this.userGroups.deleteOne({ user, group });
+    await this.assertUserIsMember(user, group);
+    await this.memberships.deleteOne({ user, group });
     return { msg: "Group successfully left!" };
   }
 
   async getMembers(group: ObjectId) {
-    return await this.groups.readOne({ id: group }, { projection: { members: 1 } });
+    const groupDoc = await this.memberships.readMany({ id: group });
+    return groupDoc.map((membership) => membership.user);
   }
 
-  async getByUser(user: ObjectId) {
-    return await this.userGroups.readMany({ user });
+  async getUserMemberships(user: ObjectId) {
+    return await this.memberships.readMany({ user });
   }
 
-  async idsToGroupNames(ids: ObjectId[]) {
-    const groups = await this.groups.readMany({ _id: { $in: ids } });
-    return groups.map((group) => group.name);
-  }
-
-  async assertOwnerIsUser(user: ObjectId, group: ObjectId) {
-    const groupDoc = await this.groups.readOne({ id: group });
-    if (!groupDoc) {
-      throw new NotFoundError("Group not found!");
-    }
-    if (user.toString() !== groupDoc.owner.toString()) {
-      throw new GroupOwnerNotMatchError(user, group);
+  private async assertUserIsNotMember(user: ObjectId, group: ObjectId) {
+    const membership = await this.memberships.readOne({ user, group });
+    if (membership !== null) {
+      throw new UserIsAlreadyMemberError(user, group);
     }
   }
 
-  async assertUserIsNotInGroup(user: ObjectId, group: ObjectId) {
-    const groupDoc = await this.groups.readOne({ id: group });
-    if (!groupDoc) {
-      throw new NotFoundError("Group not found!");
-    }
-    if (user.toString() in groupDoc.members.map((member) => member.toString())) {
-      throw new UserAlreadyInGroupError(user, group);
-    }
-  }
-
-  async assertUserIsInGroup(user: ObjectId, group: ObjectId) {
-    const groupDoc = await this.groups.readOne({ id: group });
-    if (!groupDoc) {
-      throw new NotFoundError("Group not found!");
-    }
-    if (user.toString() in groupDoc.members.map((member) => member.toString())) {
-      throw new UserNotInGroupError(user, group);
+  private async assertUserIsMember(user: ObjectId, group: ObjectId) {
+    const membership = await this.memberships.readOne({ user, group });
+    if (membership === null) {
+      throw new UserIsNotMemberError(user, group);
     }
   }
 }
 
-export class GroupOwnerNotMatchError extends NotAllowedError {
-  constructor(
-    public readonly owner: ObjectId,
-    public readonly _id: ObjectId,
-  ) {
-    super("{0} is not the owner of group {1}!", owner, _id);
-  }
-}
-
-export class UserAlreadyInGroupError extends NotAllowedError {
+export class UserIsAlreadyMemberError extends NotAllowedError {
   constructor(
     public readonly user: ObjectId,
     public readonly group: ObjectId,
@@ -102,7 +63,7 @@ export class UserAlreadyInGroupError extends NotAllowedError {
   }
 }
 
-export class UserNotInGroupError extends NotAllowedError {
+export class UserIsNotMemberError extends NotAllowedError {
   constructor(
     public readonly user: ObjectId,
     public readonly group: ObjectId,
