@@ -24,7 +24,7 @@ export default class TrackingConcept {
     return { msg: "Data successfully logged!", data: await this.data.readOne({ user, date }) };
   }
 
-  async update(_id: ObjectId, date: Date, score: number) {
+  async update(_id: ObjectId, date?: Date, score?: number) {
     await this.data.partialUpdateOne({ _id }, { date, score });
     return { msg: "Data successfully updated!" };
   }
