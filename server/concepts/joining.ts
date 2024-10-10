@@ -9,9 +9,9 @@ export interface GroupDoc extends BaseDoc {
   members: ObjectId[];
 }
 
-export interface UserGroupsDoc extends BaseDoc {
+export interface UserGroupDoc extends BaseDoc {
   user: ObjectId;
-  groups: ObjectId[];
+  group: ObjectId;
 }
 
 /**
@@ -19,24 +19,24 @@ export interface UserGroupsDoc extends BaseDoc {
  */
 export default class JoiningConcept {
   public readonly groups: DocCollection<GroupDoc>;
-  public readonly userGroups: DocCollection<UserGroupsDoc>;
+  public readonly userGroups: DocCollection<UserGroupDoc>;
 
   constructor(collectionName: string) {
     this.groups = new DocCollection<GroupDoc>(collectionName);
-    this.userGroups = new DocCollection<UserGroupsDoc>(collectionName + "_userGroups");
+    this.userGroups = new DocCollection<UserGroupDoc>(collectionName + "_userGroups");
   }
 
   async join(user: ObjectId, group: ObjectId) {
     await this.assertUserIsNotInGroup(user, group);
     const _id = await this.groups.collection.updateOne({ id: group }, { $push: { members: user } });
-    await this.userGroups.collection.updateOne({ user }, { $push: { groups: group } });
+    await this.userGroups.createOne({ user, group });
     return { msg: "Group successfully joined!", group: await this.groups.readOne({ _id }) };
   }
 
   async leave(user: ObjectId, group: ObjectId) {
     await this.assertUserIsInGroup(user, group);
     await this.groups.collection.updateOne({ id: group }, { $pull: { members: user } });
-    await this.userGroups.collection.updateOne({ user }, { $pull: { groups: group } });
+    await this.userGroups.deleteOne({ user, group });
     return { msg: "Group successfully left!" };
   }
 
@@ -45,7 +45,7 @@ export default class JoiningConcept {
   }
 
   async getByUser(user: ObjectId) {
-    return await this.userGroups.readOne({ user }, { projection: { groups: 1 } });
+    return await this.userGroups.readMany({ user });
   }
 
   async idsToGroupNames(ids: ObjectId[]) {

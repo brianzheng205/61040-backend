@@ -1,7 +1,7 @@
 import { Authing, Joining } from "./app";
 import { CommentAuthorNotMatchError, CommentDoc } from "./concepts/commenting";
 import { AlreadyFriendsError, FriendNotFoundError, FriendRequestAlreadyExistsError, FriendRequestDoc, FriendRequestNotFoundError } from "./concepts/friending";
-import { GroupDoc, GroupOwnerNotMatchError, UserAlreadyInGroupError, UserGroupsDoc, UserNotInGroupError } from "./concepts/joining";
+import { GroupDoc, GroupOwnerNotMatchError, UserAlreadyInGroupError, UserGroupDoc, UserNotInGroupError } from "./concepts/joining";
 import { PostAuthorNotMatchError, PostDoc } from "./concepts/posting";
 import { Router } from "./framework/router";
 
@@ -84,12 +84,12 @@ export default class Responses {
    * Conver UserGroupsDoc into more readable format for the frontend
    * by converting the group ids into names and the user id into username.
    */
-  static async userGroups(userGroups: UserGroupsDoc | null) {
-    if (!userGroups) {
+  static async userGroups(userGroups: UserGroupDoc[]) {
+    if (userGroups.length === 0) {
       return userGroups;
     }
-    const username = await Authing.getUserById(userGroups.user).then((user) => user.username);
-    const groupNames = await Joining.idsToGroupNames(userGroups.groups);
+    const username = await Authing.getUserById(userGroups[0].user).then((user) => user.username);
+    const groupNames = await Joining.idsToGroupNames(userGroups.map((userGroup) => userGroup.group));
     return { user: username, groups: groupNames };
   }
 }
