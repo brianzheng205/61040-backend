@@ -1,7 +1,7 @@
 import { Authing, Joining } from "./app";
 import { CommentAuthorNotMatchError, CommentDoc } from "./concepts/commenting";
 import { AlreadyFriendsError, FriendNotFoundError, FriendRequestAlreadyExistsError, FriendRequestDoc, FriendRequestNotFoundError } from "./concepts/friending";
-import { GroupDoc, GroupOwnerNotMatchError, UserGroupsDoc } from "./concepts/joining";
+import { GroupDoc, GroupOwnerNotMatchError, UserAlreadyInGroupError, UserGroupsDoc, UserNotInGroupError } from "./concepts/joining";
 import { PostAuthorNotMatchError, PostDoc } from "./concepts/posting";
 import { Router } from "./framework/router";
 
@@ -126,5 +126,18 @@ Router.registerError(AlreadyFriendsError, async (e) => {
 
 Router.registerError(GroupOwnerNotMatchError, async (e) => {
   const username = (await Authing.getUserById(e.owner)).username;
-  return e.formatWith(username, e._id);
+  const groupName = (await Joining.idsToGroupNames([e._id]))[0];
+  return e.formatWith(username, groupName);
+});
+
+Router.registerError(UserAlreadyInGroupError, async (e) => {
+  const username = (await Authing.getUserById(e.user)).username;
+  const groupName = (await Joining.idsToGroupNames([e.group]))[0];
+  return e.formatWith(username, groupName);
+});
+
+Router.registerError(UserNotInGroupError, async (e) => {
+  const username = (await Authing.getUserById(e.user)).username;
+  const groupName = (await Joining.idsToGroupNames([e.group]))[0];
+  return e.formatWith(username, groupName);
 });

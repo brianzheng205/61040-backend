@@ -69,7 +69,7 @@ export default class JoiningConcept {
       throw new NotFoundError("Group not found!");
     }
     if (user.toString() in groupDoc.members.map((member) => member.toString())) {
-      throw new Error("User is already in group!");
+      throw new UserAlreadyInGroupError(user, group);
     }
   }
 
@@ -79,7 +79,7 @@ export default class JoiningConcept {
       throw new NotFoundError("Group not found!");
     }
     if (user.toString() in groupDoc.members.map((member) => member.toString())) {
-      throw new NotFoundError("User is not in group!");
+      throw new UserNotInGroupError(user, group);
     }
   }
 }
@@ -90,5 +90,23 @@ export class GroupOwnerNotMatchError extends NotAllowedError {
     public readonly _id: ObjectId,
   ) {
     super("{0} is not the owner of group {1}!", owner, _id);
+  }
+}
+
+export class UserAlreadyInGroupError extends NotAllowedError {
+  constructor(
+    public readonly user: ObjectId,
+    public readonly group: ObjectId,
+  ) {
+    super("{0} is already in group {1}!", user, group);
+  }
+}
+
+export class UserNotInGroupError extends NotAllowedError {
+  constructor(
+    public readonly user: ObjectId,
+    public readonly group: ObjectId,
+  ) {
+    super("{0} is not in group {1}!", user, group);
   }
 }
