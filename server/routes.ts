@@ -282,18 +282,18 @@ class Routes {
   }
 
   @Router.post("/links/comments")
-  async createUserCommentLink(session: SessionDoc, commentId: string) {
+  async createUserCommentLink(session: SessionDoc, id: string) {
     const user = Sessioning.getUser(session);
-    const commentOid = new ObjectId(commentId);
-    await Commenting.assertUserIsAuthor(commentOid, user);
-    return await Linking.link(user, commentOid);
+    const oid = new ObjectId(id);
+    await Commenting.assertUserIsAuthor(oid, user);
+    return await Linking.link(user, oid);
   }
 
   @Router.delete("/links/comments/:id")
-  async deleteUserCommentLink(session: SessionDoc, commentId: string) {
+  async deleteUserCommentLink(session: SessionDoc, id: string) {
     const user = Sessioning.getUser(session);
-    const commentOid = new ObjectId(commentId);
-    return await Linking.unlink(user, commentOid);
+    const oid = new ObjectId(id);
+    return await Linking.unlink(user, oid);
   }
 
   @Router.get("/links/comments/:id")
@@ -368,15 +368,27 @@ class Routes {
 
   @Router.get("/data")
   @Router.validate(z.object({ username: z.string().optional(), date: z.string().optional(), dateRange: z.string().optional(), sort: z.string().optional() }))
-  async getData(username?: string, date?: string, dateRange?: string, sort?: string) {
-    const user = username ? (await Authing.getUserByUsername(username))._id : undefined;
+  async getData(session: SessionDoc, username?: string, date?: string, dateRange?: string, sort?: string) {
+    const user = Sessioning.getUser(session);
+    const usernameOid = username ? (await Authing.getUserByUsername(username))._id : undefined;
     const dateObj = date ? new Date(date) : undefined;
     const dateRangeArr = dateRange ? dateRange.split("_") : undefined;
     const dateRangeParsed = dateRangeArr ? ([new Date(dateRangeArr[0]), new Date(dateRangeArr[1])] as [Date, Date]) : undefined;
     const sortParsed = sort === "score" ? SortOptions.SCORE : sort === "date" ? SortOptions.DATE : undefined;
-    return await Tracking.getData(user, dateObj, dateRangeParsed, sortParsed);
+    const data = await Tracking.getData(usernameOid, dateObj, dateRangeParsed, sortParsed);
+    const linkedItems = new Set((await Linking.getLinks()).map((link) => link.item));
+    return data.map((d) => (linkedItems.has(d._id) || d.user.equals(user) ? d : Tracking.redactUser(d)));
   }
 
+  /**
+   * Logs a user's score data and, if the user is part of any competitions, inputs the data into those competitions.
+   * If `isLinked === "true"`, then the data is also linked to the user.
+   * @param session The session of the user
+   * @param isLinked A string indicating whether the data should be linked to the user. If `"true"`, then the data is linked.
+   * @param date The date of the data.
+   * @param score The user's score.
+   * @returns The newly created data, with a message indicating whether the data was successfully logged and whether the data was linked.
+   */
   @Router.post("/data")
   async logData(session: SessionDoc, isLinked: string, date: Date, score: number) {
     const user = Sessioning.getUser(session);
@@ -399,17 +411,17 @@ class Routes {
   @Router.patch("/data/:id")
   async updateData(session: SessionDoc, id: string, date?: Date, score?: number) {
     const user = Sessioning.getUser(session);
-    const dataOid = new ObjectId(id);
-    await Tracking.assertUserIsOwner(dataOid, user);
-    return await Tracking.update(dataOid, date, score);
+    const oid = new ObjectId(id);
+    await Tracking.assertUserIsOwner(oid, user);
+    return await Tracking.update(oid, date, score);
   }
 
   @Router.delete("/data/:id")
   async deleteData(session: SessionDoc, id: string) {
     const user = Sessioning.getUser(session);
-    const dataOid = new ObjectId(id);
-    await Tracking.assertUserIsOwner(dataOid, user);
-    return await Tracking.delete(dataOid);
+    const oid = new ObjectId(id);
+    await Tracking.assertUserIsOwner(oid, user);
+    return await Tracking.delete(oid);
   }
 
   /**
@@ -434,17 +446,15 @@ class Routes {
       });
   }
 
-  // TODO redact owner if necessary, do this everywhere
   @Router.post("/competitions")
   async createCompetition(session: SessionDoc, name: string, endDate: string) {
     const user = Sessioning.getUser(session);
     const endDateObj = new Date(endDate);
     const competitionCreation = await Competing.create(user, name, endDateObj);
     const joinCreation = await Joining.join(competitionCreation.competition._id, user);
-    // TODO automatically join owner to newly created competition
     // TODO format response
     // return { msg: postCreation.msg, post: await Responses.post(postCreation.post) };
-    return { ...competitionCreation, msg: `${competitionCreation.msg}\n${joinCreation.msg}` };
+    return { competition: competitionCreation, group: joinCreation.group, msg: `${competitionCreation.msg}\n${joinCreation.msg}` };
   }
 
   @Router.patch("/competitions/:name")

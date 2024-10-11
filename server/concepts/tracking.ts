@@ -33,16 +33,6 @@ export default class TrackingConcept {
     return { msg: "Data successfully logged!", data };
   }
 
-  async update(_id: ObjectId, date?: Date, score?: number) {
-    await this.data.partialUpdateOne({ _id }, { date, score });
-    return { msg: "Data successfully updated!" };
-  }
-
-  async delete(_id: ObjectId) {
-    await this.data.deleteOne({ _id });
-    return { msg: "Data successfully deleted!" };
-  }
-
   /**
    * Get data based on the following filters:
    *   - `username`: A user's username
@@ -81,6 +71,22 @@ export default class TrackingConcept {
         return b.date.getTime() - a.date.getTime();
       }
     });
+  }
+
+  async redactUser(data: DataDoc) {
+    // eslint-disable-next-line
+    const { user, ...rest } = data;
+    return rest;
+  }
+
+  async update(_id: ObjectId, date?: Date, score?: number) {
+    await this.data.partialUpdateOne({ _id }, { date, score });
+    return { msg: "Data successfully updated!" };
+  }
+
+  async delete(_id: ObjectId) {
+    await this.data.deleteOne({ _id });
+    return { msg: "Data successfully deleted!" };
   }
 
   async assertUserIsOwner(_id: ObjectId, user: ObjectId) {

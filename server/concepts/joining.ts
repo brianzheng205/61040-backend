@@ -1,7 +1,7 @@
 import { ObjectId } from "mongodb";
 
 import DocCollection, { BaseDoc } from "../framework/doc";
-import { NotAllowedError } from "./errors";
+import { NotAllowedError, NotFoundError } from "./errors";
 
 export interface MembershipDoc extends BaseDoc {
   user: ObjectId;
@@ -21,7 +21,11 @@ export default class JoiningConcept {
   async join(user: ObjectId, group: ObjectId) {
     await this.assertUserIsNotMember(user, group);
     const _id = await this.memberships.createOne({ user, group });
-    return { msg: "Group successfully joined!", group: await this.memberships.readOne({ _id }) };
+    const newGroup = await this.memberships.readOne({ _id });
+    if (!group) {
+      throw new NotFoundError(`Group ${group} does not exist!`);
+    }
+    return { msg: "Group successfully joined!", group: newGroup };
   }
 
   async leave(user: ObjectId, group: ObjectId) {
