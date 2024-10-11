@@ -1,9 +1,9 @@
 import { Authing, Competing } from "./app";
-import { UserAlreadyAssociatedError, UserNotAssociatedError } from "./concepts/associating";
 import { CommentAuthorNotMatchError, CommentDoc } from "./concepts/commenting";
 import { CompetitionOwnerNotMatchError } from "./concepts/competing";
 import { AlreadyFriendsError, FriendNotFoundError, FriendRequestAlreadyExistsError, FriendRequestDoc, FriendRequestNotFoundError } from "./concepts/friending";
 import { UserIsAlreadyMemberError, UserIsNotMemberError } from "./concepts/joining";
+import { UserAlreadyLinkedError, UserNotLinkedError } from "./concepts/linking";
 import { PostAuthorNotMatchError, PostDoc } from "./concepts/posting";
 import { DataOwnerNotMatchError } from "./concepts/tracking";
 import { Router } from "./framework/router";
@@ -106,12 +106,12 @@ Router.registerError(UserIsNotMemberError, async (e) => {
   return e.formatWith(username, groupName);
 });
 
-Router.registerError(UserNotAssociatedError, async (e) => {
+Router.registerError(UserNotLinkedError, async (e) => {
   const username = (await Authing.getUserById(e.user)).username;
   return e.formatWith(username, e.item);
 });
 
-Router.registerError(UserAlreadyAssociatedError, async (e) => {
+Router.registerError(UserAlreadyLinkedError, async (e) => {
   const username = (await Authing.getUserById(e.user)).username;
   return e.formatWith(username, e.item);
 });

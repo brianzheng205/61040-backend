@@ -20,7 +20,11 @@ export default class CommentingConcept {
 
   async create(author: ObjectId, item: ObjectId, content: string) {
     const _id = await this.comments.createOne({ author, item, content });
-    return { msg: "Comment successfully created!", comment: await this.comments.readOne({ _id }) };
+    return { msg: "Comment successfully created!", comment: await this.comments.readOne({ _id }), _id };
+  }
+
+  async getComments() {
+    return await this.comments.readMany({}, { sort: { _id: -1 } });
   }
 
   async getByAuthor(author: ObjectId) {
