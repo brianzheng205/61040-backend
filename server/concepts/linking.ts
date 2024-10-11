@@ -25,7 +25,6 @@ export default class LinkingConcept {
   }
 
   async unlink(user: ObjectId, item: ObjectId) {
-    await this.assertUserIsLinked(user, item);
     await this.links.deleteOne({ user, item });
     return { msg: "Item successfully unlinked from user!" };
   }
@@ -42,27 +41,11 @@ export default class LinkingConcept {
     return await this.links.readMany({ user });
   }
 
-  private async assertUserIsLinked(user: ObjectId, item: ObjectId) {
-    const userItem = await this.links.readOne({ user, item });
-    if (!userItem) {
-      throw new UserNotLinkedError(user, item);
-    }
-  }
-
   private async assertUserIsNotLinked(user: ObjectId, item: ObjectId) {
     const userItem = await this.links.readOne({ user, item });
     if (userItem) {
       throw new UserAlreadyLinkedError(user, item);
     }
-  }
-}
-
-export class UserNotLinkedError extends NotAllowedError {
-  constructor(
-    public readonly user: ObjectId,
-    public readonly item: ObjectId,
-  ) {
-    super(`User ${user} is not linked with item ${item}!`);
   }
 }
 

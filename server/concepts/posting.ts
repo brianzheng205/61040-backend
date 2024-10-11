@@ -28,7 +28,11 @@ export default class PostingConcept {
 
   async create(author: ObjectId, content: string, options?: PostOptions) {
     const _id = await this.posts.createOne({ author, content, options });
-    return { msg: "Post successfully created!", post: await this.posts.readOne({ _id }), _id };
+    const post = await this.posts.readOne({ _id });
+    if (!post) {
+      throw new NotFoundError(`Post ${_id} does not exist!`);
+    }
+    return { msg: "Post successfully created!", post };
   }
 
   async getPosts() {
@@ -52,7 +56,13 @@ export default class PostingConcept {
     return { msg: "Post deleted successfully!" };
   }
 
-  async assertAuthorIsUser(_id: ObjectId, user: ObjectId) {
+  async redactAuthor(post: PostDoc) {
+    // eslint-disable-next-line
+    const { author, ...rest } = post;
+    return rest;
+  }
+
+  async assertUserIsAuthor(_id: ObjectId, user: ObjectId) {
     const post = await this.posts.readOne({ _id });
     if (!post) {
       throw new NotFoundError(`Post ${_id} does not exist!`);

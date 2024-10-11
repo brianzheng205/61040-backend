@@ -3,7 +3,7 @@ import { CommentAuthorNotMatchError, CommentDoc } from "./concepts/commenting";
 import { CompetitionOwnerNotMatchError } from "./concepts/competing";
 import { AlreadyFriendsError, FriendNotFoundError, FriendRequestAlreadyExistsError, FriendRequestDoc, FriendRequestNotFoundError } from "./concepts/friending";
 import { UserIsAlreadyMemberError, UserIsNotMemberError } from "./concepts/joining";
-import { UserAlreadyLinkedError, UserNotLinkedError } from "./concepts/linking";
+import { UserAlreadyLinkedError } from "./concepts/linking";
 import { PostAuthorNotMatchError, PostDoc } from "./concepts/posting";
 import { DataOwnerNotMatchError } from "./concepts/tracking";
 import { Router } from "./framework/router";
@@ -96,19 +96,14 @@ Router.registerError(AlreadyFriendsError, async (e) => {
 
 Router.registerError(UserIsAlreadyMemberError, async (e) => {
   const username = (await Authing.getUserById(e.user)).username;
-  const groupName = (await Competing.getCompetitionById(e.group)).name;
+  const groupName = (await Competing.getById(e.group)).name;
   return e.formatWith(username, groupName);
 });
 
 Router.registerError(UserIsNotMemberError, async (e) => {
   const username = (await Authing.getUserById(e.user)).username;
-  const groupName = (await Competing.getCompetitionById(e.group)).name;
+  const groupName = (await Competing.getById(e.group)).name;
   return e.formatWith(username, groupName);
-});
-
-Router.registerError(UserNotLinkedError, async (e) => {
-  const username = (await Authing.getUserById(e.user)).username;
-  return e.formatWith(username, e.item);
 });
 
 Router.registerError(UserAlreadyLinkedError, async (e) => {
@@ -123,6 +118,6 @@ Router.registerError(DataOwnerNotMatchError, async (e) => {
 
 Router.registerError(CompetitionOwnerNotMatchError, async (e) => {
   const username = (await Authing.getUserById(e.user)).username;
-  const competitionName = (await Competing.getCompetitionById(e.competition)).name;
+  const competitionName = (await Competing.getById(e.competition)).name;
   return e.formatWith(competitionName, username);
 });

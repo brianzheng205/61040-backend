@@ -39,7 +39,7 @@ export default class SessioningConcept {
   }
 
   isLoggedOut(session: SessionDoc) {
-    if (session.user !== undefined) {
+    if (session.user) {
       throw new NotAllowedError("Must be logged out!");
     }
   }

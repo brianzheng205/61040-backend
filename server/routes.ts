@@ -2,9 +2,11 @@ import { ObjectId } from "mongodb";
 
 import { Router, getExpressRouter } from "./framework/router";
 
-import { Authing, Commenting, Friending, Linking, Posting, Sessioning } from "./app";
+import { Authing, Commenting, Competing, Friending, Joining, Linking, Posting, Sessioning, Tracking } from "./app";
+import { LinkDoc } from "./concepts/linking";
 import { PostOptions } from "./concepts/posting";
 import { SessionDoc } from "./concepts/sessioning";
+import { SortOptions } from "./concepts/tracking";
 import Responses from "./responses";
 
 import { z } from "zod";
@@ -70,27 +72,27 @@ class Routes {
     return { msg: "Logged out!" };
   }
 
+  /**
+   * Get all posts from all users, or all posts from a specific user if the `author` parameter is specified.
+   * If the `author` parameter is specified, only return posts from that user.
+   * Redact all authors that are not the user, unless the post is linked to the user.
+   * @param session the session of the user
+   * @param author the username of the user to get posts from, or undefined to get all posts
+   * @returns An array of posts, filtered and redacted if necessary
+   */
   @Router.get("/posts")
   @Router.validate(z.object({ author: z.string().optional() }))
   async getPosts(session: SessionDoc, author?: string) {
     const user = Sessioning.getUser(session);
-    const publicItems = new Set((await Linking.getLinks()).map((link) => link.item));
-    const allPosts = await Posting.getPosts();
+    const linkedItems = new Set((await Linking.getLinks()).map((link) => link.item));
 
-    if (author !== undefined && (await Authing.getUserByUsername(author))._id.equals(user)) {
-      // Return all of author's posts if user is the author
-      return allPosts.filter((p) => p.author.equals(user));
-    } else if (author !== undefined) {
-      // Return all of author's public posts if user is not the author
-      const id = (await Authing.getUserByUsername(author))._id;
-      const allAuthorPosts = allPosts.filter((p) => p.author.equals(id));
-      return allAuthorPosts.filter((p) => publicItems.has(p._id));
+    if (author) {
+      const authorId = (await Authing.getUserByUsername(author))._id;
+      const authorPosts = await Posting.getByAuthor(authorId);
+      return authorPosts.map((post) => (user.equals(post.author) || linkedItems.has(post._id) ? post : Posting.redactAuthor(post)));
     } else {
-      // Return all public posts and user's (public and private) posts if author is not specified
-      const allPublicPosts = allPosts.filter((p) => publicItems.has(p._id));
-      const allPublicPostsSet = new Set(allPublicPosts);
-      const allUserPosts = allPosts.filter((p) => p.author.equals(user));
-      return allPublicPosts.concat(allUserPosts.filter((p) => !allPublicPostsSet.has(p)));
+      const allPosts = await Posting.getPosts();
+      return allPosts.map((post) => (linkedItems.has(post._id) ? post : Posting.redactAuthor(post)));
     }
   }
 
@@ -99,7 +101,7 @@ class Routes {
     const user = Sessioning.getUser(session);
     const postCreation = await Posting.create(user, content, options);
     if (isLinked === "true") {
-      Linking.link(user, postCreation._id);
+      Linking.link(user, postCreation.post._id);
     }
     return { msg: postCreation.msg, post: await Responses.post(postCreation.post) };
   }
@@ -108,7 +110,7 @@ class Routes {
   async updatePost(session: SessionDoc, id: string, content?: string, options?: PostOptions) {
     const user = Sessioning.getUser(session);
     const oid = new ObjectId(id);
-    await Posting.assertAuthorIsUser(oid, user);
+    await Posting.assertUserIsAuthor(oid, user);
     return await Posting.update(oid, content, options);
   }
 
@@ -116,7 +118,7 @@ class Routes {
   async deletePost(session: SessionDoc, id: string) {
     const user = Sessioning.getUser(session);
     const oid = new ObjectId(id);
-    await Posting.assertAuthorIsUser(oid, user);
+    await Posting.assertUserIsAuthor(oid, user);
     const postDeletion = await Posting.delete(oid);
     const linkDeletion = await Linking.unlink(user, oid);
     return { msg: `${postDeletion.msg} and ${linkDeletion.msg}` };
@@ -169,27 +171,27 @@ class Routes {
     return await Friending.rejectRequest(fromOid, user);
   }
 
+  /**
+   * Get all comments from all users, or all comments from a specific user if the `author` parameter is specified.
+   * If the `author` parameter is specified, only return comments from that user.
+   * Redact all authors that are not the user, unless the post is linked to the user.
+   * @param session the session of the user
+   * @param author the username of the user to get comments from, or undefined to get all comments
+   * @returns An array of comments, filtered and redacted if necessary
+   */
   @Router.get("/comments")
   @Router.validate(z.object({ author: z.string().optional() }))
   async getComments(session: SessionDoc, author?: string) {
     const user = Sessioning.getUser(session);
-    const publicItemsSet = new Set((await Linking.getLinks()).map((link) => link.item));
+    const linkedItems = new Set((await Linking.getLinks()).map((link) => link.item));
 
-    if (author !== undefined && (await Authing.getUserByUsername(author))._id.equals(user)) {
-      // Return all of author's comments if user is the author
-      return await Commenting.getByAuthor(user);
-    } else if (author !== undefined) {
-      // Return all of author's public comments if user is not the author
-      const id = (await Authing.getUserByUsername(author))._id;
-      const allAuthorComments = await Commenting.getByAuthor(id);
-      return allAuthorComments.filter((p) => publicItemsSet.has(p._id));
+    if (author) {
+      const authorId = (await Authing.getUserByUsername(author))._id;
+      const authorComments = await Commenting.getByAuthor(authorId);
+      return authorComments.map((comment) => (user.equals(comment.author) || linkedItems.has(comment._id) ? comment : Commenting.redactAuthor(comment)));
     } else {
-      // Return all public comments and user's (public and private) comments if author is not specified
       const allComments = await Commenting.getComments();
-      const allPublicComments = allComments.filter((p) => publicItemsSet.has(p._id));
-      const allPublicCommentsSet = new Set(allPublicComments);
-      const allUserComments = await Commenting.getByAuthor(user);
-      return allPublicComments.concat(allUserComments.filter((p) => !allPublicCommentsSet.has(p)));
+      return allComments.map((comment) => (linkedItems.has(comment._id) ? comment : Commenting.redactAuthor(comment)));
     }
   }
 
@@ -200,7 +202,7 @@ class Routes {
     const user = Sessioning.getUser(session);
     const commentCreation = await Commenting.create(user, post, content);
     if (isLinked === "true") {
-      Linking.link(user, commentCreation._id);
+      Linking.link(user, commentCreation.comment._id);
     }
     return { msg: commentCreation.msg, comment: await Responses.comment(commentCreation.comment) };
   }
@@ -209,7 +211,7 @@ class Routes {
   async updateComment(session: SessionDoc, id: string, content?: string) {
     const user = Sessioning.getUser(session);
     const oid = new ObjectId(id);
-    await Commenting.assertAuthorIsUser(oid, user);
+    await Commenting.assertUserIsAuthor(oid, user);
     return await Commenting.update(oid, content);
   }
 
@@ -217,7 +219,7 @@ class Routes {
   async deleteComment(session: SessionDoc, id: string) {
     const user = Sessioning.getUser(session);
     const oid = new ObjectId(id);
-    await Commenting.assertAuthorIsUser(oid, user);
+    await Commenting.assertUserIsAuthor(oid, user);
     const commentDeletion = await Commenting.delete(oid);
     const linkDeletion = await Linking.unlink(user, oid);
     return { msg: `${commentDeletion.msg} and ${linkDeletion.msg}` };
@@ -226,7 +228,7 @@ class Routes {
   @Router.get("/links")
   @Router.validate(z.object({ user: z.string().optional() }))
   async getLinks(user?: string) {
-    if (user !== undefined) {
+    if (user) {
       const userId = (await Authing.getUserByUsername(user))._id;
       return await Linking.getByUser(userId);
     } else {
@@ -235,11 +237,12 @@ class Routes {
   }
 
   @Router.get("/links/posts")
+  @Router.validate(z.object({ user: z.string().optional() }))
   async getUserPostLinks(user?: string) {
     const postIds = new Set((await Posting.getPosts()).map((post) => post._id));
     const links = await Linking.getLinks();
 
-    if (user !== undefined) {
+    if (user) {
       const userId = (await Authing.getUserByUsername(user))._id;
       return links.filter((link) => link.user.equals(userId) && postIds.has(link.item));
     } else {
@@ -250,23 +253,24 @@ class Routes {
   @Router.post("/links/posts")
   async createUserPostLink(session: SessionDoc, postId: string) {
     const user = Sessioning.getUser(session);
-    const postOid = new ObjectId(postId);
-    await Posting.assertAuthorIsUser(postOid, user);
-    return await Linking.link(user, postOid);
+    const oid = new ObjectId(postId);
+    await Posting.assertUserIsAuthor(oid, user);
+    return await Linking.link(user, oid);
   }
 
   @Router.delete("/links/posts/:id")
-  async deleteUserPostLink(session: SessionDoc, postId: string) {
+  async deleteUserPostLink(session: SessionDoc, id: string) {
     const user = Sessioning.getUser(session);
-    const postOid = new ObjectId(postId);
-    return await Linking.unlink(user, postOid);
+    const oid = new ObjectId(id);
+    return await Linking.unlink(user, oid);
   }
 
   @Router.get("/links/posts/:id")
-  async getUserPostLink(postId: string) {
-    const postOid = new ObjectId(postId);
+  @Router.validate(z.object({ id: z.string().min(1) }))
+  async getUserPostLink(id: string) {
+    const oid = new ObjectId(id);
     // TODO create response for this and all other links
-    return await Linking.getByItem(postOid);
+    return await Linking.getByItem(oid);
   }
 
   @Router.get("/links/comments")
@@ -281,7 +285,7 @@ class Routes {
   async createUserCommentLink(session: SessionDoc, commentId: string) {
     const user = Sessioning.getUser(session);
     const commentOid = new ObjectId(commentId);
-    await Commenting.assertAuthorIsUser(commentOid, user);
+    await Commenting.assertUserIsAuthor(commentOid, user);
     return await Linking.link(user, commentOid);
   }
 
@@ -293,54 +297,199 @@ class Routes {
   }
 
   @Router.get("/links/comments/:id")
-  async getUserCommentLink(commentId: string) {
-    const commentOid = new ObjectId(commentId);
+  @Router.validate(z.object({ id: z.string().min(1) }))
+  async getUserCommentLink(id: string) {
+    const oid = new ObjectId(id);
     // TODO create response for this and all other links
-    return await Linking.getByItem(commentOid);
+    return await Linking.getByItem(oid);
   }
 
-  // TODO: Add Docs
-  /**
-   * Get data for a user, on a certain date, within a certain time period, or for the best score.
-   * You must specify either:
-   *   - `username`: A user's username
-   *   - `date`: A date in the format YYYY-MM-DD
-   *   - `dateRange`: A date range in the format YYYY-MM-DD-YYYY-MM-DD, e.g. 2021-01-01-2021-02-01
-   *   - `sort`: A field to sort by (score or date)
-   */
-  @Router.get("/data")
-  async getData(username?: string, date?: string, dateRange?: string, sort?: string) {}
+  @Router.get("/links/data")
+  async getUserDataLinks(session: SessionDoc) {
+    const user = Sessioning.getUser(session);
+    const ids = new Set((await Tracking.getData()).map((data) => data._id));
+    const links = await Linking.getLinks();
+    return links.filter((link) => ids.has(link.item) && link.user.equals(user));
+  }
 
-  // TODO: Add data to any competitions that the user is a part of
+  @Router.post("/links/data")
+  async createUserDataLink(session: SessionDoc, id: string) {
+    const user = Sessioning.getUser(session);
+    const oid = new ObjectId(id);
+    await Tracking.assertUserIsOwner(oid, user);
+    return await Linking.link(user, oid);
+  }
+
+  @Router.delete("/links/data/:id")
+  async deleteUserDataLink(session: SessionDoc, id: string) {
+    const user = Sessioning.getUser(session);
+    const oid = new ObjectId(id);
+    return await Linking.unlink(user, oid);
+  }
+
+  @Router.get("/links/data/:id")
+  @Router.validate(z.object({ id: z.string().min(1) }))
+  async getUserDataLink(id: string) {
+    const oid = new ObjectId(id);
+    // TODO create response for this and all other links
+    return await Linking.getByItem(oid);
+  }
+
+  @Router.get("/links/competitions")
+  async getUserCompetitionLinks(session: SessionDoc) {
+    const user = Sessioning.getUser(session);
+    const ids = new Set((await Competing.getCompetitions()).map((competition) => competition._id));
+    const links = await Linking.getLinks();
+    return links.filter((link) => ids.has(link.item) && link.user.equals(user));
+  }
+
+  @Router.post("/links/competitions")
+  async createUserCompetitionLink(session: SessionDoc, id: string) {
+    const user = Sessioning.getUser(session);
+    const oid = new ObjectId(id);
+    await Competing.assertUserIsOwner(oid, user);
+    return await Linking.link(user, oid);
+  }
+
+  @Router.delete("/links/competitions/:id")
+  async deleteUserCompetitionLink(session: SessionDoc, id: string) {
+    const user = Sessioning.getUser(session);
+    const oid = new ObjectId(id);
+    return await Linking.unlink(user, oid);
+  }
+
+  @Router.get("/links/competitions/:id")
+  @Router.validate(z.object({ id: z.string().min(1) }))
+  async getUserCompetitionLink(id: string) {
+    const oid = new ObjectId(id);
+    // TODO create response for this and all other links
+    return await Linking.getByItem(oid);
+  }
+
+  @Router.get("/data")
+  @Router.validate(z.object({ username: z.string().optional(), date: z.string().optional(), dateRange: z.string().optional(), sort: z.string().optional() }))
+  async getData(username?: string, date?: string, dateRange?: string, sort?: string) {
+    const user = username ? (await Authing.getUserByUsername(username))._id : undefined;
+    const dateObj = date ? new Date(date) : undefined;
+    const dateRangeArr = dateRange ? dateRange.split("_") : undefined;
+    const dateRangeParsed = dateRangeArr ? ([new Date(dateRangeArr[0]), new Date(dateRangeArr[1])] as [Date, Date]) : undefined;
+    const sortParsed = sort === "score" ? SortOptions.SCORE : sort === "date" ? SortOptions.DATE : undefined;
+    return await Tracking.getData(user, dateObj, dateRangeParsed, sortParsed);
+  }
+
   @Router.post("/data")
-  async logData(session: SessionDoc, date: Date, score: number) {}
+  async logData(session: SessionDoc, isLinked: string, date: Date, score: number) {
+    const user = Sessioning.getUser(session);
+    const data = await Tracking.log(user, date, score);
+    // Input data to any competitions that the user is a part of
+    Joining.getUserMemberships(user).then((memberships) => {
+      memberships.forEach((membership) => {
+        const competition = new ObjectId(membership.group);
+        Competing.inputData(competition, data.data._id);
+      });
+    });
+
+    if (isLinked === "true") {
+      await Linking.link(user, data.data._id);
+    }
+
+    return { ...data, msg: `${data}\nAll competition data successfully logged!${isLinked && "\nLinked data to user!"}` };
+  }
 
   @Router.patch("/data/:id")
-  async updateData(session: SessionDoc, id: string, date?: Date, score?: number) {}
+  async updateData(session: SessionDoc, id: string, date?: Date, score?: number) {
+    const user = Sessioning.getUser(session);
+    const dataOid = new ObjectId(id);
+    await Tracking.assertUserIsOwner(dataOid, user);
+    return await Tracking.update(dataOid, date, score);
+  }
 
   @Router.delete("/data/:id")
-  async deleteData(session: SessionDoc, id: string) {}
+  async deleteData(session: SessionDoc, id: string) {
+    const user = Sessioning.getUser(session);
+    const dataOid = new ObjectId(id);
+    await Tracking.assertUserIsOwner(dataOid, user);
+    return await Tracking.delete(dataOid);
+  }
 
+  /**
+   * Get all competitions, filtered by username's competitions if username is specified, redacting all non-linked owners that are not the user
+   * @param session The session of the user
+   * @param username The username of the user to filter by, if specified
+   * @returns An array of competitions, filtered and redacted if necessary
+   */
   @Router.get("/competitions")
-  async getCompetitions(username?: string) {}
+  @Router.validate(z.object({ username: z.string().optional() }))
+  async getCompetitions(session: SessionDoc, username?: string) {
+    const user = Sessioning.getUser(session);
+    const links = new Set(await Linking.getLinks());
+    const competitions = await Competing.getCompetitions();
 
+    const usernameOid = username ? (await Authing.getUserByUsername(username))._id : undefined;
+    return competitions
+      .filter(async (competition) => (usernameOid ? (await Joining.getMembers(competition._id)).includes(usernameOid) : true))
+      .map((competition) => {
+        const ownerCompetitionLink = { user: competition.owner, item: competition._id } as LinkDoc;
+        return user.equals(competition.owner) || links.has(ownerCompetitionLink) ? competition : Competing.redactOwner(competition);
+      });
+  }
+
+  // TODO redact owner if necessary, do this everywhere
   @Router.post("/competitions")
-  async createCompetition(session: SessionDoc, name: string) {}
+  async createCompetition(session: SessionDoc, name: string, endDate: string) {
+    const user = Sessioning.getUser(session);
+    const endDateObj = new Date(endDate);
+    const competitionCreation = await Competing.create(user, name, endDateObj);
+    const joinCreation = await Joining.join(competitionCreation.competition._id, user);
+    // TODO automatically join owner to newly created competition
+    // TODO format response
+    // return { msg: postCreation.msg, post: await Responses.post(postCreation.post) };
+    return { ...competitionCreation, msg: `${competitionCreation.msg}\n${joinCreation.msg}` };
+  }
 
-  @Router.patch("/competitions/:competitionName")
-  async updateCompetition(session: SessionDoc, competitionName: string, newName?: string, owner?: ObjectId, endDate?: string) {}
+  @Router.patch("/competitions/:name")
+  async updateCompetition(session: SessionDoc, name: string, newName?: string, owner?: string, endDate?: string) {
+    const user = Sessioning.getUser(session);
+    const oid = (await Competing.getByName(name))._id;
+    await Competing.assertUserIsOwner(oid, user);
+    const ownerObj = owner ? new ObjectId(owner) : undefined;
+    const endDateObj = endDate ? new Date(endDate) : undefined;
+    return await Competing.update(oid, newName, ownerObj, endDateObj);
+  }
 
-  @Router.delete("/competitions/:competitionName")
-  async deleteCompetition(session: SessionDoc, competitionName: string) {}
+  @Router.delete("/competitions/:name")
+  async deleteCompetition(session: SessionDoc, name: string) {
+    const user = Sessioning.getUser(session);
+    const oid = (await Competing.getByName(name))._id;
+    await Competing.assertUserIsOwner(oid, user);
+    const competitionDeletion = await Competing.delete(oid);
+    const linkDeletion = await Linking.unlink(user, oid);
+    return { msg: `${competitionDeletion.msg}\n${linkDeletion.msg}` };
+  }
 
-  @Router.get("/competitions/:competitionName/users")
-  async getCompetitionMembers(competitionName: string) {}
+  @Router.get("/competitions/:name/users")
+  @Router.validate(z.object({ name: z.string().min(1) }))
+  async getCompetitionMembers(session: SessionDoc, name: string) {
+    const user = Sessioning.getUser(session);
+    const competition = await Competing.getByName(name);
+    const members = await Joining.getMembers(competition._id);
+    const links = new Set(await Linking.getLinks());
+    return members.filter((member) => user.equals(member) || links.has({ user: member, item: competition._id } as LinkDoc));
+  }
 
-  @Router.post("/competitions/:competitionName/users")
-  async joinCompetition(session: SessionDoc, competitionName: string) {}
+  @Router.post("/competitions/:name/users")
+  async joinCompetition(session: SessionDoc, name: string) {
+    const user = Sessioning.getUser(session);
+    const competition = await Competing.getByName(name);
+    return await Joining.join(competition._id, user);
+  }
 
-  @Router.delete("/competitions/:competitionName/users/:user")
-  async leaveCompetition(session: SessionDoc, competitionName: string) {}
+  @Router.delete("/competitions/:name/users/:user")
+  async leaveCompetition(session: SessionDoc, name: string) {
+    const user = Sessioning.getUser(session);
+    const competition = await Competing.getByName(name);
+    return await Joining.leave(competition._id, user);
+  }
 }
 
 /** The web app. */

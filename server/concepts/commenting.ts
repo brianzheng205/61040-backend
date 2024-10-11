@@ -20,7 +20,11 @@ export default class CommentingConcept {
 
   async create(author: ObjectId, item: ObjectId, content: string) {
     const _id = await this.comments.createOne({ author, item, content });
-    return { msg: "Comment successfully created!", comment: await this.comments.readOne({ _id }), _id };
+    const comment = await this.comments.readOne({ _id });
+    if (!comment) {
+      throw new NotFoundError(`Comment ${_id} does not exist!`);
+    }
+    return { msg: "Comment successfully created!", comment };
   }
 
   async getComments() {
@@ -45,7 +49,13 @@ export default class CommentingConcept {
     return { msg: "Comment deleted successfully!" };
   }
 
-  async assertAuthorIsUser(_id: ObjectId, user: ObjectId) {
+  async redactAuthor(comment: CommentDoc) {
+    // eslint-disable-next-line
+    const { author, ...rest } = comment;
+    return rest;
+  }
+
+  async assertUserIsAuthor(_id: ObjectId, user: ObjectId) {
     const comment = await this.comments.readOne({ _id });
     if (!comment) {
       throw new NotFoundError(`Comment ${_id} does not exist!`);

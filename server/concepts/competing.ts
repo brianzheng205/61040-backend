@@ -20,29 +20,46 @@ export default class CompetingConcept {
     this.competition = new DocCollection<CompetitionDoc>(collectionName);
   }
 
-  async create(name: string, owner: ObjectId, endDate: Date) {
+  async create(owner: ObjectId, name: string, endDate: Date) {
     await this.assertNameUnique(name);
     await this.assertDateIsInFuture(endDate);
     await this.competition.createOne({ name, owner, endDate, data: [] });
-    return { msg: "Competition successfully created!", competition: await this.competition.readOne({ name }) };
+    const competition = await this.competition.readOne({ name });
+    if (!competition) {
+      throw new Error("Failed to create competition");
+    }
+    return { msg: "Competition successfully created!", competition };
   }
 
   async update(_id: ObjectId, name?: string, owner?: ObjectId, endDate?: Date) {
+    await this.assertCompetitionIsActive(_id);
     await this.assertValidUpdateInfo(_id, name, owner, endDate);
     await this.competition.partialUpdateOne({ _id }, { name, owner, endDate });
     return { msg: "Competition successfully updated!" };
   }
 
-  async inputData(_id: ObjectId, data: ObjectId[]) {
-    await this.competition.collection.updateOne({ _id }, { $push: { ...data } });
+  async inputData(_id: ObjectId, data: ObjectId) {
+    await this.assertCompetitionIsActive(_id);
+    await this.competition.collection.updateOne({ _id }, { $push: { data } });
     return { msg: "Data successfully added!" };
   }
 
   async delete(_id: ObjectId) {
     await this.competition.deleteOne({ _id });
+    return { msg: "Competition successfully deleted!" };
   }
 
-  async getCompetitionById(_id: ObjectId) {
+  async redactOwner(competition: CompetitionDoc) {
+    // eslint-disable-next-line
+    const { owner, ...rest } = competition;
+    return rest;
+  }
+
+  async getCompetitions() {
+    return await this.competition.readMany({ endDate: { $gt: new Date() } }, { sort: { endDate: 1 } });
+  }
+
+  async getById(_id: ObjectId) {
     const competition = await this.competition.readOne({ _id });
     if (competition === null) {
       throw new NotFoundError(`Competition ${_id} does not exist!`);
@@ -50,16 +67,12 @@ export default class CompetingConcept {
     return competition;
   }
 
-  async getCompetitionByName(name: string) {
+  async getByName(name: string) {
     const competition = await this.competition.readOne({ name });
     if (competition === null) {
       throw new NotFoundError(`Competition ${name} does not exist!`);
     }
     return competition;
-  }
-
-  async getCompetitionsOrderedByEndDate() {
-    return await this.competition.readMany({ endDate: { $gt: new Date() } }, { sort: { endDate: 1 } });
   }
 
   async assertUserIsOwner(user: ObjectId, competition: ObjectId) {
@@ -72,14 +85,24 @@ export default class CompetingConcept {
     }
   }
 
+  private async assertCompetitionIsActive(_id: ObjectId) {
+    const competition = await this.competition.readOne({ _id });
+    if (competition === null) {
+      throw new NotFoundError(`Competition ${_id} does not exist!`);
+    }
+    if (competition.endDate < new Date()) {
+      throw new NotAllowedError(`Competition ${competition.name} has already ended!`);
+    }
+  }
+
   private async assertValidUpdateInfo(_id: ObjectId, name?: string, owner?: ObjectId, endDate?: Date) {
-    if (name !== undefined) {
+    if (name) {
       await this.assertNameUnique(name);
     }
-    if (owner !== undefined) {
+    if (owner) {
       await this.assertUserIsNotOwner(owner, _id);
     }
-    if (endDate !== undefined) {
+    if (endDate) {
       await this.assertDateIsInFuture(endDate);
     }
   }
