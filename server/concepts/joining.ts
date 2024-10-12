@@ -33,26 +33,23 @@ export default class JoiningConcept {
   }
 
   async getMembers(group: ObjectId) {
-    return await this.memberships.readMany({ id: group });
+    return (await this.memberships.readMany({ id: group })).map((m) => m.user);
   }
 
-  async getMemberIds(group: ObjectId) {
-    const memberships = await this.getMembers(group);
-    return memberships.map((m) => m.user);
+  async getMemberships(group: ObjectId) {
+    return await this.memberships.readMany({ group });
   }
 
   async getUserMemberships(user: ObjectId) {
     return await this.memberships.readMany({ user });
   }
 
-  private async assertUserIsNotMember(user: ObjectId, group: ObjectId) {
-    const membership = await this.memberships.readOne({ user, group });
-    if (!membership) throw new UserIsAlreadyMemberError(user, group);
+  private async assertUserIsMember(user: ObjectId, group: ObjectId) {
+    if (!(await this.memberships.readOne({ user, group }))) throw new UserIsNotMemberError(user, group);
   }
 
-  private async assertUserIsMember(user: ObjectId, group: ObjectId) {
-    const membership = await this.memberships.readOne({ user, group });
-    if (!membership) throw new UserIsNotMemberError(user, group);
+  private async assertUserIsNotMember(user: ObjectId, group: ObjectId) {
+    if (await this.memberships.readOne({ user, group })) throw new UserIsAlreadyMemberError(user, group);
   }
 }
 

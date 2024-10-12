@@ -78,13 +78,8 @@ export default class AuthenticatingConcept {
 
   async updatePassword(_id: ObjectId, currentPassword: string, newPassword: string) {
     const user = await this.users.readOne({ _id });
-    if (!user) {
-      throw new NotFoundError("User not found");
-    }
-    if (user.password !== currentPassword) {
-      throw new NotAllowedError("The given current password is wrong!");
-    }
-
+    if (!user) throw new NotFoundError("User not found");
+    if (user.password !== currentPassword) throw new NotAllowedError("The given current password is wrong!");
     await this.users.partialUpdateOne({ _id }, { password: newPassword });
     return { msg: "Password updated successfully!" };
   }
@@ -96,21 +91,15 @@ export default class AuthenticatingConcept {
 
   async assertUserExists(_id: ObjectId) {
     const maybeUser = await this.users.readOne({ _id });
-    if (maybeUser === null) {
-      throw new NotFoundError(`User not found!`);
-    }
+    if (!maybeUser) throw new NotFoundError(`User not found!`);
   }
 
   private async assertGoodCredentials(username: string, password: string) {
-    if (!username || !password) {
-      throw new BadValuesError("Username and password must be non-empty!");
-    }
+    if (!username || !password) throw new BadValuesError("Username and password must be non-empty!");
     await this.assertUsernameUnique(username);
   }
 
   private async assertUsernameUnique(username: string) {
-    if (await this.users.readOne({ username })) {
-      throw new NotAllowedError(`User with username ${username} already exists!`);
-    }
+    if (await this.users.readOne({ username })) throw new NotAllowedError(`User with username ${username} already exists!`);
   }
 }

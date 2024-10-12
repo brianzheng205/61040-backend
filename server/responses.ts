@@ -1,3 +1,5 @@
+import { ObjectId } from "mongodb";
+
 import { Authing, Competing, Tracking } from "./app";
 import { CommentAuthorNotMatchError, CommentDoc } from "./concepts/commenting";
 import { CompetitionDoc, CompetitionOwnerNotMatchError } from "./concepts/competing";
@@ -115,7 +117,7 @@ export default class Responses {
   }
 
   /**
-   * Convert MembershipDoc into more readable format for the frontend
+   * Convert member into more readable format for the frontend
    * by converting the user id into a username.
    */
   static async membership(membership: MembershipDoc) {

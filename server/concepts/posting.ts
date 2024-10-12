@@ -52,9 +52,10 @@ export default class PostingConcept {
   }
 
   async update(_id: ObjectId, content?: string, options?: PostOptions) {
-    // Note that if content or options is undefined, those fields will *not* be updated
-    // since undefined values for partialUpdateOne are ignored.
-    await this.posts.partialUpdateOne({ _id }, { content, options });
+    const update: Partial<PostDoc> = {};
+    if (content) update.content = content;
+    if (options) update.options = options;
+    await this.posts.partialUpdateOne({ _id }, update);
     return { msg: "Post successfully updated!" };
   }
 
@@ -72,12 +73,11 @@ export default class PostingConcept {
   async assertUserIsAuthor(_id: ObjectId, user: ObjectId) {
     const post = await this.posts.readOne({ _id });
     if (!post) throw new NotFoundError(`Post ${_id} does not exist!`);
-    if (post.author.toString() !== user.toString()) throw new PostAuthorNotMatchError(user, _id);
+    if (!user.equals(post.author)) throw new PostAuthorNotMatchError(user, _id);
   }
 
   async assertPostExists(_id: ObjectId) {
-    const post = await this.posts.readOne({ _id });
-    if (!post) throw new NotFoundError(`Post ${_id} does not exist!`);
+    if (!(await this.posts.readOne({ _id }))) throw new NotFoundError(`Post ${_id} does not exist!`);
   }
 }
 

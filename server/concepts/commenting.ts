@@ -30,9 +30,7 @@ export default class CommentingConcept {
   async create(author: ObjectId, item: ObjectId, content: string) {
     const _id = await this.comments.createOne({ author, item, content });
     const comment = await this.comments.readOne({ _id });
-    if (!comment) {
-      throw new NotFoundError(`Comment ${_id} does not exist!`);
-    }
+    if (!comment) throw new NotFoundError(`Comment ${_id} does not exist!`);
     return { msg: "Comment successfully created!", comment };
   }
 
@@ -49,12 +47,14 @@ export default class CommentingConcept {
   }
 
   async update(_id: ObjectId, content?: string) {
-    await this.comments.partialUpdateOne({ _id }, { content });
+    const update: Partial<CommentDoc> = {};
+    if (content) update.content = content;
+    await this.comments.partialUpdateOne({ _id }, update);
     return { msg: "Comment successfully updated!" };
   }
 
   async delete(_id: ObjectId) {
-    await this.comments.deleteOne(_id);
+    await this.comments.deleteOne({ _id });
     return { msg: "Comment deleted successfully!" };
   }
 
@@ -66,12 +66,8 @@ export default class CommentingConcept {
 
   async assertUserIsAuthor(_id: ObjectId, user: ObjectId) {
     const comment = await this.comments.readOne({ _id });
-    if (!comment) {
-      throw new NotFoundError(`Comment ${_id} does not exist!`);
-    }
-    if (comment.author.toString() !== user.toString()) {
-      throw new Error(`Comment ${_id} does not belong to user ${user}!`);
-    }
+    if (!comment) throw new NotFoundError(`Comment ${_id} does not exist!`);
+    if (!user.equals(comment.author)) throw new Error(`Comment ${_id} does not belong to user ${user}!`);
   }
 }
 

@@ -34,26 +34,26 @@ export default class TrackingConcept {
   }
 
   async log(user: ObjectId, date: Date, score: number) {
-    await this.data.createOne({ user, date, score });
-    const data = await this.data.readOne({ user, date });
-    if (data === null) throw new NotFoundError(`Data for user ${user} and date ${date} does not exist!`);
-    return { msg: "Data successfully logged!", data };
+    const _id = await this.data.createOne({ user, date, score });
+    const data = await this.data.readOne({ _id });
+    if (!data) throw new NotFoundError(`Data for user ${user} and date ${date} does not exist!`);
+    return { msg: "Data successfully logged!", data: data };
   }
 
   /**
    * Get data based on the following filters:
    *   - `username`: A user's username
-   *   - `date` or `dateRange`: A date in the format YYYY-MM-DD or a date range in the format YYYY-MM-DD_YYYY-MM-DD
+   *   - `date` or `dateRange`: A date or a date range
    *
    * and the following sort options:
    *   - `sort`: A field to sort by (score or date)
    */
   async getData(user?: ObjectId, date?: Date, dateRange?: [Date, Date], sort?: SortOptions) {
-    const allData = await this.data.readMany({}, { sort: { _id: -1 } });
-    const [startDate, endDate] = dateRange || [undefined, undefined];
-    const filteredData = allData.filter((data) => !(user && !data.user.equals(user)) && !(date && data.date !== date) && !(startDate && endDate && (data.date < startDate || endDate < data.date)));
-    if (!sort) return filteredData;
-    return filteredData.sort((a, b) => (sort === SortOptions.SCORE ? b.score - a.score : b.date.getTime() - a.date.getTime()));
+    const query: Record<string, unknown> = {};
+    if (user) query.user = user;
+    if (date) query.date = date;
+    if (dateRange) query.date = { $gte: dateRange[0], $lte: dateRange[1] };
+    return await this.data.readMany(query, { sort: sort === SortOptions.SCORE ? { score: -1 } : sort === SortOptions.DATE ? { date: -1 } : {} });
   }
 
   async getByIds(ids: ObjectId[]) {
@@ -71,7 +71,10 @@ export default class TrackingConcept {
   }
 
   async update(_id: ObjectId, date?: Date, score?: number) {
-    await this.data.partialUpdateOne({ _id }, { date, score });
+    const update: Partial<DataDoc> = {};
+    if (date) update.date = date;
+    if (score) update.score = score;
+    await this.data.partialUpdateOne({ _id }, update);
     return { msg: "Data successfully updated!" };
   }
 
@@ -82,8 +85,8 @@ export default class TrackingConcept {
 
   async assertUserIsOwner(_id: ObjectId, user: ObjectId) {
     const data = await this.data.readOne({ _id });
-    if (data === null) throw new NotFoundError(`Data ${_id} does not exist!`);
-    if (data.user.toString() !== user.toString()) throw new DataOwnerNotMatchError(_id, user);
+    if (!data) throw new NotFoundError(`Data ${_id} does not exist!`);
+    if (!user.equals(data.user)) throw new DataOwnerNotMatchError(_id, user);
   }
 }
 

@@ -40,11 +40,9 @@ export default class CompetingConcept {
   async create(owner: ObjectId, name: string, endDate: Date) {
     await this.assertNameUnique(name);
     await this.assertDateIsInFuture(endDate);
-    await this.competitions.createOne({ name, owner, endDate, data: [] });
-    const competition = await this.competitions.readOne({ name });
-    if (!competition) {
-      throw new Error("Failed to create competition");
-    }
+    const _id = await this.competitions.createOne({ name, owner, endDate, data: [] });
+    const competition = await this.competitions.readOne({ _id });
+    if (!competition) throw new Error("Failed to create competition");
     return { msg: "Competition successfully created!", competition };
   }
 
@@ -71,7 +69,11 @@ export default class CompetingConcept {
   async update(_id: ObjectId, name?: string, owner?: ObjectId, endDate?: Date) {
     await this.assertCompetitionIsActive(_id);
     await this.assertValidUpdateInfo(_id, name, owner, endDate);
-    await this.competitions.partialUpdateOne({ _id }, { name, owner, endDate });
+    const update: Partial<CompetitionDoc> = {};
+    if (name) update.name = name;
+    if (owner) update.owner = owner;
+    if (endDate) update.endDate = endDate;
+    await this.competitions.partialUpdateOne({ _id }, update);
     return { msg: "Competition successfully updated!" };
   }
 
@@ -92,10 +94,10 @@ export default class CompetingConcept {
     return rest;
   }
 
-  async assertUserIsOwner(user: ObjectId, competition: ObjectId) {
-    const competitionData = await this.competitions.readOne({ _id: competition });
-    if (!competitionData) throw new NotFoundError(`Competition ${competition} does not exist!`);
-    if (competitionData.owner.toString() !== user.toString()) throw new CompetitionOwnerNotMatchError(user, competition);
+  async assertUserIsOwner(_id: ObjectId, user: ObjectId) {
+    const competitionData = await this.competitions.readOne({ _id });
+    if (!competitionData) throw new NotFoundError(`Competition ${_id} does not exist!`);
+    if (!user.equals(competitionData.owner)) throw new CompetitionOwnerNotMatchError(user, _id);
   }
 
   private async assertCompetitionIsActive(_id: ObjectId) {
@@ -113,7 +115,7 @@ export default class CompetingConcept {
   private async assertUserIsNotOwner(user: ObjectId, competition: ObjectId) {
     const competitionData = await this.competitions.readOne({ _id: competition });
     if (!competitionData) throw new NotFoundError(`Competition ${competition} does not exist!`);
-    if (competitionData.owner.toString() === user.toString()) throw new NotAllowedError(`User ${user} is already the owner of ${competition}!`);
+    if (!user.equals(competitionData.owner)) throw new NotAllowedError(`User ${user} is already the owner of ${competition}!`);
   }
 
   private async assertNameUnique(name: string) {

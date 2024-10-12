@@ -74,8 +74,7 @@ export default class FriendingConcept {
     const friendships = await this.friends.readMany({
       $or: [{ user1: user }, { user2: user }],
     });
-    // Making sure to compare ObjectId using toString()
-    return friendships.map((friendship) => (friendship.user1.toString() === user.toString() ? friendship.user2 : friendship.user1));
+    return friendships.map((friendship) => (user.equals(friendship.user1) ? friendship.user2 : friendship.user1));
   }
 
   private async addFriend(user1: ObjectId, user2: ObjectId) {
@@ -97,7 +96,7 @@ export default class FriendingConcept {
         { user1: u2, user2: u1 },
       ],
     });
-    if (friendship !== null || u1.toString() === u2.toString()) {
+    if (friendship !== null || u1.equals(u2)) {
       throw new AlreadyFriendsError(u1, u2);
     }
   }

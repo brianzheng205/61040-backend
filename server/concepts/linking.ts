@@ -30,10 +30,6 @@ export default class LinkingConcept {
     return await this.links.readMany({}, { sort: { _id: -1 } });
   }
 
-  async getByItem(item: ObjectId) {
-    return await this.links.readMany({ item });
-  }
-
   async getByUser(user: ObjectId) {
     return await this.links.readMany({ user });
   }
@@ -43,14 +39,23 @@ export default class LinkingConcept {
     return link ? true : false;
   }
 
+  async delete(_id: ObjectId) {
+    await this.links.deleteOne({ _id });
+    return { msg: "Item successfully unlinked from user!" };
+  }
+
   async unlink(user: ObjectId, item: ObjectId) {
     await this.links.deleteOne({ user, item });
     return { msg: "Item successfully unlinked from user!" };
   }
 
+  async assertLinkBelongsToUser(_id: ObjectId, user: ObjectId) {
+    // TODO create custom error
+    if (!(await this.links.readOne({ _id, user }))) throw new NotAllowedError(`Link ${_id} does not belong to user ${user}!`);
+  }
+
   private async assertLinkDoesNotExist(user: ObjectId, item: ObjectId) {
-    const link = await this.links.readOne({ user, item });
-    if (link) throw new LinkAlreadyExists(link.user, link.item);
+    if (await this.links.readOne({ user, item })) throw new LinkAlreadyExists(user, item);
   }
 }
 
