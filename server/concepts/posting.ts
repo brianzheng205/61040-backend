@@ -13,6 +13,15 @@ export interface PostDoc extends BaseDoc {
   options?: PostOptions;
 }
 
+interface FormattedPost {
+  author: string;
+  content: string;
+  options?: PostOptions;
+  _id: ObjectId;
+  dateCreated: Date;
+  dateUpdated: Date;
+}
+
 /**
  * concept: Posting [Author]
  */
@@ -29,9 +38,7 @@ export default class PostingConcept {
   async create(author: ObjectId, content: string, options?: PostOptions) {
     const _id = await this.posts.createOne({ author, content, options });
     const post = await this.posts.readOne({ _id });
-    if (!post) {
-      throw new NotFoundError(`Post ${_id} does not exist!`);
-    }
+    if (!post) throw new NotFoundError(`Post ${_id} does not exist!`);
     return { msg: "Post successfully created!", post };
   }
 
@@ -56,7 +63,7 @@ export default class PostingConcept {
     return { msg: "Post deleted successfully!" };
   }
 
-  async redactAuthor(post: PostDoc) {
+  redactAuthor(post: FormattedPost) {
     // eslint-disable-next-line
     const { author, ...rest } = post;
     return rest;
@@ -64,19 +71,13 @@ export default class PostingConcept {
 
   async assertUserIsAuthor(_id: ObjectId, user: ObjectId) {
     const post = await this.posts.readOne({ _id });
-    if (!post) {
-      throw new NotFoundError(`Post ${_id} does not exist!`);
-    }
-    if (post.author.toString() !== user.toString()) {
-      throw new PostAuthorNotMatchError(user, _id);
-    }
+    if (!post) throw new NotFoundError(`Post ${_id} does not exist!`);
+    if (post.author.toString() !== user.toString()) throw new PostAuthorNotMatchError(user, _id);
   }
 
   async assertPostExists(_id: ObjectId) {
     const post = await this.posts.readOne({ _id });
-    if (!post) {
-      throw new NotFoundError(`Post ${_id} does not exist!`);
-    }
+    if (!post) throw new NotFoundError(`Post ${_id} does not exist!`);
   }
 }
 

@@ -1,7 +1,7 @@
 import { ObjectId } from "mongodb";
 
 import DocCollection, { BaseDoc } from "../framework/doc";
-import { NotAllowedError } from "./errors";
+import { NotAllowedError, NotFoundError } from "./errors";
 
 export interface LinkDoc extends BaseDoc {
   user: ObjectId;
@@ -19,14 +19,11 @@ export default class LinkingConcept {
   }
 
   async link(user: ObjectId, item: ObjectId) {
-    await this.assertUserIsNotLinked(user, item);
+    await this.assertLinkDoesNotExist(user, item);
     await this.links.createOne({ user, item });
-    return { msg: "Item successfully linked with user!", item: await this.links.readOne({ user, item }) };
-  }
-
-  async unlink(user: ObjectId, item: ObjectId) {
-    await this.links.deleteOne({ user, item });
-    return { msg: "Item successfully unlinked from user!" };
+    const link = await this.links.readOne({ user, item });
+    if (!link) throw new NotFoundError(`Item ${item} does not exist!`);
+    return { msg: "Item successfully linked with user!", link };
   }
 
   async getLinks() {
@@ -41,19 +38,27 @@ export default class LinkingConcept {
     return await this.links.readMany({ user });
   }
 
-  private async assertUserIsNotLinked(user: ObjectId, item: ObjectId) {
-    const userItem = await this.links.readOne({ user, item });
-    if (userItem) {
-      throw new UserAlreadyLinkedError(user, item);
-    }
+  async hasLink(user: ObjectId, item: ObjectId) {
+    const link = await this.links.readOne({ user, item });
+    return link ? true : false;
+  }
+
+  async unlink(user: ObjectId, item: ObjectId) {
+    await this.links.deleteOne({ user, item });
+    return { msg: "Item successfully unlinked from user!" };
+  }
+
+  private async assertLinkDoesNotExist(user: ObjectId, item: ObjectId) {
+    const link = await this.links.readOne({ user, item });
+    if (link) throw new LinkAlreadyExists(link.user, link.item);
   }
 }
 
-export class UserAlreadyLinkedError extends NotAllowedError {
+export class LinkAlreadyExists extends NotAllowedError {
   constructor(
     public readonly user: ObjectId,
     public readonly item: ObjectId,
   ) {
-    super(`User ${user} is already linked with item ${item}!`);
+    super("{0} is already linked to item {1}!", user, item);
   }
 }

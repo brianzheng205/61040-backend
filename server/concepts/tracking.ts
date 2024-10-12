@@ -14,6 +14,15 @@ export interface DataDoc extends BaseDoc {
   score: number;
 }
 
+interface FormattedData {
+  user: string;
+  date: Date;
+  score: number;
+  _id: ObjectId;
+  dateCreated: Date;
+  dateUpdated: Date;
+}
+
 /**
  * Tracking [User]
  */
@@ -27,9 +36,7 @@ export default class TrackingConcept {
   async log(user: ObjectId, date: Date, score: number) {
     await this.data.createOne({ user, date, score });
     const data = await this.data.readOne({ user, date });
-    if (data === null) {
-      throw new NotFoundError(`Data for user ${user} and date ${date} does not exist!`);
-    }
+    if (data === null) throw new NotFoundError(`Data for user ${user} and date ${date} does not exist!`);
     return { msg: "Data successfully logged!", data };
   }
 
@@ -44,36 +51,20 @@ export default class TrackingConcept {
   async getData(user?: ObjectId, date?: Date, dateRange?: [Date, Date], sort?: SortOptions) {
     const allData = await this.data.readMany({}, { sort: { _id: -1 } });
     const [startDate, endDate] = dateRange || [undefined, undefined];
-    const filteredData = allData.filter((data) => {
-      if (user && !data.user.equals(user)) {
-        return false;
-      }
-
-      if (date && data.date !== date) {
-        return false;
-      }
-
-      if (startDate && endDate && (data.date < startDate || endDate < data.date)) {
-        return false;
-      }
-
-      return true;
-    });
-
-    if (!sort) {
-      return filteredData;
-    }
-
-    return filteredData.sort((a, b) => {
-      if (sort === SortOptions.SCORE) {
-        return b.score - a.score;
-      } else {
-        return b.date.getTime() - a.date.getTime();
-      }
-    });
+    const filteredData = allData.filter((data) => !(user && !data.user.equals(user)) && !(date && data.date !== date) && !(startDate && endDate && (data.date < startDate || endDate < data.date)));
+    if (!sort) return filteredData;
+    return filteredData.sort((a, b) => (sort === SortOptions.SCORE ? b.score - a.score : b.date.getTime() - a.date.getTime()));
   }
 
-  async redactUser(data: DataDoc) {
+  async getByIds(ids: ObjectId[]) {
+    return this.data.readMany({ _id: { $in: ids } });
+  }
+
+  async getByUser(user: ObjectId) {
+    return this.data.readMany({ user });
+  }
+
+  redactUser(data: FormattedData) {
     // eslint-disable-next-line
     const { user, ...rest } = data;
     return rest;
@@ -91,12 +82,8 @@ export default class TrackingConcept {
 
   async assertUserIsOwner(_id: ObjectId, user: ObjectId) {
     const data = await this.data.readOne({ _id });
-    if (data === null) {
-      throw new NotFoundError(`Data ${_id} does not exist!`);
-    }
-    if (data.user.toString() !== user.toString()) {
-      throw new DataOwnerNotMatchError(_id, user);
-    }
+    if (data === null) throw new NotFoundError(`Data ${_id} does not exist!`);
+    if (data.user.toString() !== user.toString()) throw new DataOwnerNotMatchError(_id, user);
   }
 }
 

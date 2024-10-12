@@ -21,11 +21,9 @@ export default class JoiningConcept {
   async join(user: ObjectId, group: ObjectId) {
     await this.assertUserIsNotMember(user, group);
     const _id = await this.memberships.createOne({ user, group });
-    const newGroup = await this.memberships.readOne({ _id });
-    if (!group) {
-      throw new NotFoundError(`Group ${group} does not exist!`);
-    }
-    return { msg: "Group successfully joined!", group: newGroup };
+    const membership = await this.memberships.readOne({ _id });
+    if (!membership) throw new NotFoundError(`Group ${group} does not exist!`);
+    return { msg: "Group successfully joined!", membership };
   }
 
   async leave(user: ObjectId, group: ObjectId) {
@@ -35,8 +33,12 @@ export default class JoiningConcept {
   }
 
   async getMembers(group: ObjectId) {
-    const groupDoc = await this.memberships.readMany({ id: group });
-    return groupDoc.map((membership) => membership.user);
+    return await this.memberships.readMany({ id: group });
+  }
+
+  async getMemberIds(group: ObjectId) {
+    const memberships = await this.getMembers(group);
+    return memberships.map((m) => m.user);
   }
 
   async getUserMemberships(user: ObjectId) {
@@ -45,16 +47,12 @@ export default class JoiningConcept {
 
   private async assertUserIsNotMember(user: ObjectId, group: ObjectId) {
     const membership = await this.memberships.readOne({ user, group });
-    if (membership !== null) {
-      throw new UserIsAlreadyMemberError(user, group);
-    }
+    if (!membership) throw new UserIsAlreadyMemberError(user, group);
   }
 
   private async assertUserIsMember(user: ObjectId, group: ObjectId) {
     const membership = await this.memberships.readOne({ user, group });
-    if (membership === null) {
-      throw new UserIsNotMemberError(user, group);
-    }
+    if (!membership) throw new UserIsNotMemberError(user, group);
   }
 }
 

@@ -8,6 +8,15 @@ export interface CommentDoc extends BaseDoc {
   content: string;
 }
 
+interface FormattedComment {
+  author: string;
+  item: ObjectId;
+  content: string;
+  _id: ObjectId;
+  dateCreated: Date;
+  dateUpdated: Date;
+}
+
 /**
  * concept: Commenting [Item, Author]
  */
@@ -49,7 +58,7 @@ export default class CommentingConcept {
     return { msg: "Comment deleted successfully!" };
   }
 
-  async redactAuthor(comment: CommentDoc) {
+  redactAuthor(comment: FormattedComment) {
     // eslint-disable-next-line
     const { author, ...rest } = comment;
     return rest;
