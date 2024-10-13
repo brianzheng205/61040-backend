@@ -50,8 +50,7 @@ export default class LinkingConcept {
   }
 
   async assertLinkBelongsToUser(_id: ObjectId, user: ObjectId) {
-    // TODO create custom error
-    if (!(await this.links.readOne({ _id, user }))) throw new NotAllowedError(`Link ${_id} does not belong to user ${user}!`);
+    if (!(await this.links.readOne({ _id, user }))) throw new UserDoesNotOwnLinkError(user, _id);
   }
 
   private async assertLinkDoesNotExist(user: ObjectId, item: ObjectId) {
@@ -65,5 +64,14 @@ export class LinkAlreadyExists extends NotAllowedError {
     public readonly item: ObjectId,
   ) {
     super("{0} is already linked to item {1}!", user, item);
+  }
+}
+
+export class UserDoesNotOwnLinkError extends NotAllowedError {
+  constructor(
+    public readonly user: ObjectId,
+    public readonly _id: ObjectId,
+  ) {
+    super("User {0} does not own link {1}!", user, _id);
   }
 }

@@ -3,7 +3,7 @@ import { CommentAuthorNotMatchError, CommentDoc } from "./concepts/commenting";
 import { CompetitionDoc, CompetitionOwnerNotMatchError } from "./concepts/competing";
 import { AlreadyFriendsError, FriendNotFoundError, FriendRequestAlreadyExistsError, FriendRequestDoc, FriendRequestNotFoundError } from "./concepts/friending";
 import { MembershipDoc, UserIsAlreadyMemberError, UserIsNotMemberError } from "./concepts/joining";
-import { LinkAlreadyExists, LinkDoc } from "./concepts/linking";
+import { LinkAlreadyExists, LinkDoc, UserDoesNotOwnLinkError } from "./concepts/linking";
 import { PostAuthorNotMatchError, PostDoc } from "./concepts/posting";
 import { DataDoc, DataOwnerNotMatchError } from "./concepts/tracking";
 import { Router } from "./framework/router";
@@ -166,6 +166,11 @@ Router.registerError(AlreadyFriendsError, async (e) => {
 Router.registerError(LinkAlreadyExists, async (e) => {
   const username = (await Authing.getUserById(e.user)).username;
   return e.formatWith(username, e.item);
+});
+
+Router.registerError(UserDoesNotOwnLinkError, async (e) => {
+  const username = (await Authing.getUserById(e.user)).username;
+  return e.formatWith(username, e._id);
 });
 
 Router.registerError(UserIsAlreadyMemberError, async (e) => {
