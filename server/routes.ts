@@ -284,12 +284,12 @@ class Routes {
   }
 
   @Router.get("/links/comments")
-  @Router.validate(z.object({ user: z.string().optional() }))
-  async getUserCommentLinks(user?: string) {
+  @Router.validate(z.object({ username: z.string().optional() }))
+  async getUserCommentLinks(username?: string) {
     const links = await Linking.getLinks();
 
-    if (user) {
-      const userOid = (await Authing.getUserByUsername(user))._id;
+    if (username) {
+      const userOid = (await Authing.getUserByUsername(username))._id;
       const userCommentOids = new Set((await Commenting.getByAuthor(userOid)).map((comment) => comment._id.toString()));
       const userCommentLinks = links.filter((link) => userCommentOids.has(link.item.toString()));
       return await Responses.links(userCommentLinks);
@@ -318,12 +318,12 @@ class Routes {
   }
 
   @Router.get("/links/data")
-  @Router.validate(z.object({ user: z.string().optional() }))
-  async getUserDataLinks(user?: string) {
+  @Router.validate(z.object({ username: z.string().optional() }))
+  async getUserDataLinks(username?: string) {
     const links = await Linking.getLinks();
 
-    if (user) {
-      const userOid = (await Authing.getUserByUsername(user))._id;
+    if (username) {
+      const userOid = (await Authing.getUserByUsername(username))._id;
       const userDataOids = new Set((await Tracking.getByUser(userOid)).map((d) => d._id.toString()));
       const userDataLinks = links.filter((link) => userDataOids.has(link.item.toString()));
       return await Responses.links(userDataLinks);
@@ -352,12 +352,12 @@ class Routes {
   }
 
   @Router.get("/links/competitions")
-  @Router.validate(z.object({ user: z.string().optional() }))
-  async getUserCompetitionLinks(user?: string) {
+  @Router.validate(z.object({ username: z.string().optional() }))
+  async getUserCompetitionLinks(username?: string) {
     const links = await Linking.getLinks();
 
-    if (user) {
-      const userOid = (await Authing.getUserByUsername(user))._id;
+    if (username) {
+      const userOid = (await Authing.getUserByUsername(username))._id;
       const userCompetitionOids = new Set((await Competing.getByOwner(userOid)).map((d) => d._id.toString()));
       const userCompetitionLinks = links.filter((link) => userCompetitionOids.has(link.item.toString()));
       return await Responses.links(userCompetitionLinks);
@@ -472,7 +472,14 @@ class Routes {
 
     if (username) {
       const usernameOid = (await Authing.getUserByUsername(username))._id;
-      const usernameCompetitions = competitions.filter(async (competition) => (await Joining.getMembers(competition._id)).includes(usernameOid));
+      const usernameCompetitions = (
+        await Promise.all(
+          competitions.map(async (competition) => {
+            const members = await Joining.getMembers(competition._id);
+            return members.some((m) => m.equals(usernameOid)) ? competition : null;
+          }),
+        )
+      ).filter((c) => c !== null);
       const userCompetitionsFormatted = await Responses.competitions(usernameCompetitions);
       return user && user.equals(usernameOid)
         ? userCompetitionsFormatted

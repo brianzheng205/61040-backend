@@ -33,7 +33,7 @@ export default class JoiningConcept {
   }
 
   async getMembers(group: ObjectId) {
-    return (await this.memberships.readMany({ id: group })).map((m) => m.user);
+    return (await this.memberships.readMany({ group })).map((m) => m.user);
   }
 
   async getMemberships(group: ObjectId) {

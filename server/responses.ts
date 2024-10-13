@@ -1,5 +1,3 @@
-import { ObjectId } from "mongodb";
-
 import { Authing, Competing, Tracking } from "./app";
 import { CommentAuthorNotMatchError, CommentDoc } from "./concepts/commenting";
 import { CompetitionDoc, CompetitionOwnerNotMatchError } from "./concepts/competing";
@@ -190,5 +188,5 @@ Router.registerError(DataOwnerNotMatchError, async (e) => {
 Router.registerError(CompetitionOwnerNotMatchError, async (e) => {
   const username = (await Authing.getUserById(e.user)).username;
   const competitionName = (await Competing.getById(e.competition)).name;
-  return e.formatWith(competitionName, username);
+  return e.formatWith(username, competitionName);
 });

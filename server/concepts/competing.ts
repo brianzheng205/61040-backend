@@ -132,7 +132,7 @@ export class CompetitionOwnerNotMatchError extends NotAllowedError {
     public readonly user: ObjectId,
     public readonly competition: ObjectId,
   ) {
-    super(`User ${user} is not the owner of ${competition}!`);
+    super(`User {0} is not the owner of {1}!`);
   }
 }
 
